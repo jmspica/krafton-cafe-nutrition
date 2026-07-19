@@ -253,6 +253,34 @@ function onCodeInput(){
 
 // ── 실시간 동기화 ──
 let hasAutoSeeded = false;
+let hasMigrated = false;
+// 예전 버전(그룹 구분 필드가 없던 시절)에 이미 시드된 데이터를 위한 1회성 보정.
+// category+menu가 같은 문서들을 묶어 groupOrder/order를 새로 부여하고 Firestore에 저장한다.
+// 기존 문서를 지우지 않고 필드만 채워 넣으므로 안전하다.
+async function migrateGroupOrdersIfNeeded(){
+  if (hasMigrated) return;
+  const needsMigration = allRows.some(r => r.groupOrder === undefined || r.groupOrder === null || r.order === undefined || r.order === null);
+  if (!needsMigration) { hasMigrated = true; return; }
+  hasMigrated = true;
+  const groups = new Map();
+  let nextG = 0;
+  allRows.forEach(r => {
+    const key = (r.category || '') + '||' + (r.menu || '');
+    if (!groups.has(key)) groups.set(key, { groupOrder: nextG++, rows: [] });
+    groups.get(key).rows.push(r);
+  });
+  let batch = db.batch();
+  let count = 0;
+  for (const { groupOrder, rows: gRows } of groups.values()) {
+    for (let i = 0; i < gRows.length; i++) {
+      batch.update(colRef.doc(gRows[i].id), { groupOrder, order: i });
+      count++;
+      if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+  }
+  await batch.commit();
+}
+
 function startListening(){
   // 서버 정렬(orderBy) 없이 전체를 받아온 뒤 클라이언트에서 (groupOrder, order)로 정렬한다.
   // -> 복합 인덱스가 필요없고, 메뉴별로 항상 묶여서 보인다.
@@ -267,6 +295,8 @@ function startListening(){
     if (!hasAutoSeeded && allRows.length === 0) {
       hasAutoSeeded = true;
       seedRows(SEED_DATA, 0, true);
+    } else {
+      migrateGroupOrdersIfNeeded();
     }
   }, err => {
     console.error(err);
