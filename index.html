@@ -539,6 +539,7 @@ async function saveQuickAdd(groupOrder){
     groupOrder, order,
   });
   quickAddGroup = null;
+  render();
 }
 function onQaCodeInput(){
   const el = document.getElementById('qa_code');
@@ -576,6 +577,7 @@ async function saveEdit(id){
   };
   await colRef.doc(id).update(updated);
   editingId = null;
+  render();
 }
 
 function resetFilter(){
@@ -614,6 +616,7 @@ async function saveEditMenuGroup(groupOrder){
   siblings.forEach(r => batch.update(colRef.doc(r.id), { category: newCat, menu: newMenu }));
   await batch.commit();
   editingMenuGroup = null;
+  render();
 }
 async function deleteMenuGroup(groupOrder){
   const siblings = allRows.filter(r => r.groupOrder === groupOrder);
