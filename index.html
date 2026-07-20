@@ -109,6 +109,7 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
     <button class="btn btn-secondary" onclick="triggerImport()">📤 Excel 가져오기</button>
     <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelImport(event)">
     <button class="btn btn-excel" onclick="exportExcel()">📊 Excel 내보내기</button>
+    <button class="btn btn-secondary" onclick="removeDuplicates()">🧹 중복 제거</button>
     <button class="btn btn-danger" onclick="deleteAllData()">🗑 전체 삭제</button>
   </div>
 </div>
@@ -297,6 +298,7 @@ function startListening(){
       seedRows(SEED_DATA, 0, true);
     } else {
       migrateGroupOrdersIfNeeded();
+      autoRemoveDuplicatesIfNeeded();
     }
   }, err => {
     console.error(err);
@@ -466,6 +468,56 @@ async function deleteAllData(){
   if (!confirm('마지막 확인입니다. 정말 전체 삭제할까요?')) return;
   await deleteAllDocs();
   alert('전체 삭제되었습니다.');
+}
+
+// ── 중복 제거 (같은 그룹 안에서 제품코드+재료명+사용량+단위+비고가 완전히 같은 행을 하나만 남김) ──
+function findDuplicateIds(){
+  const seen = new Set();
+  const toDelete = [];
+  allRows.forEach(r => {
+    const key = [r.groupOrder, r.productCode, r.ingredientName, r.qty, r.unit, r.note].join('||');
+    if (seen.has(key)) {
+      toDelete.push(r.id);
+    } else {
+      seen.add(key);
+    }
+  });
+  return toDelete;
+}
+
+async function removeDuplicates(){
+  const dupIds = findDuplicateIds();
+  if (dupIds.length === 0) {
+    alert('완전히 중복된 항목이 없습니다.');
+    return;
+  }
+  if (!confirm(`완전히 동일한 중복 항목 ${dupIds.length}건을 발견했습니다. 각 그룹당 1개만 남기고 나머지를 삭제할까요?`)) return;
+  let batch = db.batch();
+  let count = 0;
+  for (const id of dupIds) {
+    batch.delete(colRef.doc(id));
+    count++;
+    if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
+  }
+  await batch.commit();
+  alert(dupIds.length + '건의 중복 항목을 삭제했습니다.');
+}
+
+// 완전 동일 중복은 사용자 확인 없이도 자동으로 한 번 정리한다 (버튼을 누르지 않아도 접속 시 바로 정리됨)
+let hasAutoDeduped = false;
+async function autoRemoveDuplicatesIfNeeded(){
+  if (hasAutoDeduped) return;
+  const dupIds = findDuplicateIds();
+  if (dupIds.length === 0) { hasAutoDeduped = true; return; }
+  hasAutoDeduped = true;
+  let batch = db.batch();
+  let count = 0;
+  for (const id of dupIds) {
+    batch.delete(colRef.doc(id));
+    count++;
+    if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
+  }
+  await batch.commit();
 }
 
 // 카테고리+메뉴명이 같은 기존 그룹을 찾아 groupOrder/다음order를 계산 (없으면 새 그룹)
