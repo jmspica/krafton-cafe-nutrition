@@ -287,7 +287,7 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
               <th style="width:100px">저장조건</th>
               <th style="width:120px">포장단위</th>
               <th style="width:100px">주문단위</th>
-              <th style="width:140px">작업</th>
+              <th style="width:210px">작업</th>
             </tr>
           </thead>
           <tbody id="masterTbody">
@@ -298,6 +298,21 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
     </div>
 
   </div><!-- /masterSection -->
+
+  <div id="photoModal" class="modal-overlay" style="display:none">
+    <div class="modal-card" style="max-width:480px">
+      <div class="modal-header">
+        <h3 id="photoModalTitle">📷 사진</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closePhotoModal()">닫기</button>
+      </div>
+      <div class="modal-body" id="photoModalBody">불러오는 중...</div>
+      <div style="padding:0 18px 16px;display:flex;gap:8px">
+        <input type="file" id="photoFileInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
+        <button class="btn btn-primary btn-sm" onclick="triggerPhotoUpload()">📤 사진 업로드/교체</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteItemPhoto()">🗑 사진 삭제</button>
+      </div>
+    </div>
+  </div>
 
   <div class="footer-note">Firebase 실시간 동기화 · 어느 컴퓨터에서든 접속 시 자동으로 최신 데이터가 반영됩니다.</div>
 </div>
@@ -705,11 +720,102 @@ function renderMaster(){
       <td class="center">${esc(r.packUnit)}</td>
       <td class="center">${esc(r.orderUnit)}</td>
       <td class="actions">
+        <button class="btn btn-secondary btn-sm" data-id="${r.id}" data-name="${esc(r.itemName)}" onclick="showItemPhoto(this.dataset.id, this.dataset.name)">📷 사진</button>
         <button class="btn btn-secondary btn-sm" onclick="startEditMaster('${r.id}')">수정</button>
         <button class="btn btn-danger btn-sm" onclick="deleteMasterItem('${r.id}')">삭제</button>
       </td>
     </tr>`;
   }).join('');
+}
+
+// ── 품목 사진 (외부/비물류 품목의 영양정보 사진 등록용, Firestore 서브컬렉션에 압축 저장) ──
+let currentPhotoItemId = null;
+
+function compressImageFile(file, maxDim, quality){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('이미지를 읽을 수 없습니다.'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function showItemPhoto(id, name){
+  currentPhotoItemId = id;
+  document.getElementById('photoModalTitle').textContent = '📷 ' + name;
+  document.getElementById('photoModal').style.display = 'flex';
+  const body = document.getElementById('photoModalBody');
+  body.innerHTML = '불러오는 중...';
+  try {
+    const doc = await masterColRef.doc(id).collection('photo').doc('main').get();
+    if (doc.exists && doc.data().dataUrl) {
+      body.innerHTML = `<img src="${doc.data().dataUrl}" style="max-width:100%;border-radius:6px;display:block;margin:0 auto">`;
+    } else {
+      body.innerHTML = '<div class="empty" style="padding:20px">등록된 사진이 없습니다.</div>';
+    }
+  } catch (e) {
+    console.error(e);
+    body.innerHTML = '<div class="empty">⚠ 사진을 불러오지 못했습니다.</div>';
+  }
+}
+
+function closePhotoModal(){
+  document.getElementById('photoModal').style.display = 'none';
+  document.getElementById('photoFileInput').value = '';
+  currentPhotoItemId = null;
+}
+
+function triggerPhotoUpload(){
+  document.getElementById('photoFileInput').click();
+}
+
+async function handlePhotoUpload(event){
+  const file = event.target.files[0];
+  if (!file || !currentPhotoItemId) return;
+  const body = document.getElementById('photoModalBody');
+  body.innerHTML = '이미지 압축 중...';
+  try {
+    let dataUrl = await compressImageFile(file, 1000, 0.6);
+    if (dataUrl.length > 900000) dataUrl = await compressImageFile(file, 700, 0.4);
+    if (dataUrl.length > 900000) {
+      alert('이미지 용량이 너무 커서 저장할 수 없습니다. 더 작은 사진을 사용해주세요.');
+      body.innerHTML = '<div class="empty">업로드 실패</div>';
+      event.target.value = '';
+      return;
+    }
+    await masterColRef.doc(currentPhotoItemId).collection('photo').doc('main').set({
+      dataUrl,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    body.innerHTML = `<img src="${dataUrl}" style="max-width:100%;border-radius:6px;display:block;margin:0 auto">`;
+  } catch (e) {
+    console.error(e);
+    alert('이미지 업로드에 실패했습니다.');
+    body.innerHTML = '<div class="empty">업로드 실패</div>';
+  }
+  event.target.value = '';
+}
+
+async function deleteItemPhoto(){
+  if (!currentPhotoItemId) return;
+  if (!confirm('이 사진을 삭제할까요?')) return;
+  await masterColRef.doc(currentPhotoItemId).collection('photo').doc('main').delete();
+  document.getElementById('photoModalBody').innerHTML = '<div class="empty" style="padding:20px">등록된 사진이 없습니다.</div>';
 }
 
 // ── Excel 가져오기 (시트 → 웹) ──
