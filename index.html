@@ -235,7 +235,7 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
             <th style="width:80px">사용량</th>
             <th style="width:70px">단위</th>
             <th style="min-width:180px">비고</th>
-            <th style="width:140px">작업</th>
+            <th style="width:210px">작업</th>
           </tr>
         </thead>
         <tbody id="tbody">
@@ -306,9 +306,10 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
         <button class="btn btn-secondary btn-sm" onclick="closePhotoModal()">닫기</button>
       </div>
       <div class="modal-body" id="photoModalBody">불러오는 중...</div>
-      <div style="padding:0 18px 16px;display:flex;gap:8px">
+      <div style="padding:0 18px 16px;display:flex;gap:8px;flex-wrap:wrap">
         <input type="file" id="photoFileInput" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)">
         <button class="btn btn-primary btn-sm" onclick="triggerPhotoUpload()">📤 사진 업로드/교체</button>
+        <button class="btn btn-secondary btn-sm" id="photoDownloadBtn" disabled style="opacity:.4" onclick="downloadItemPhoto()">📥 사진 다운로드</button>
         <button class="btn btn-danger btn-sm" onclick="deleteItemPhoto()">🗑 사진 삭제</button>
       </div>
     </div>
@@ -720,7 +721,7 @@ function renderMaster(){
       <td class="center">${esc(r.packUnit)}</td>
       <td class="center">${esc(r.orderUnit)}</td>
       <td class="actions">
-        <button class="btn btn-secondary btn-sm" data-id="${r.id}" data-name="${esc(r.itemName)}" onclick="showItemPhoto(this.dataset.id, this.dataset.name)">📷 사진</button>
+        <button class="btn btn-secondary btn-sm" data-id="${r.id}" data-name="${esc(r.itemName)}" onclick="showItemPhoto('master', this.dataset.id, this.dataset.name)">📷 사진</button>
         <button class="btn btn-secondary btn-sm" onclick="startEditMaster('${r.id}')">수정</button>
         <button class="btn btn-danger btn-sm" onclick="deleteMasterItem('${r.id}')">삭제</button>
       </td>
@@ -729,7 +730,15 @@ function renderMaster(){
 }
 
 // ── 품목 사진 (외부/비물류 품목의 영양정보 사진 등록용, Firestore 서브컬렉션에 압축 저장) ──
+// 마스터 관리 탭(masterColRef)과 영양성분표 탭(colRef) 양쪽에서 공용으로 사용
 let currentPhotoItemId = null;
+let currentPhotoScope = null;   // 'master' | 'nutrition'
+let currentPhotoName = '';
+
+function getPhotoDocRef(scope, id){
+  const base = (scope === 'master') ? masterColRef : colRef;
+  return base.doc(id).collection('photo').doc('main');
+}
 
 function compressImageFile(file, maxDim, quality){
   return new Promise((resolve, reject) => {
@@ -755,16 +764,30 @@ function compressImageFile(file, maxDim, quality){
   });
 }
 
-async function showItemPhoto(id, name){
+function setPhotoDownloadEnabled(enabled, dataUrl){
+  const btn = document.getElementById('photoDownloadBtn');
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.style.opacity = enabled ? '1' : '.4';
+  btn.style.cursor = enabled ? 'pointer' : 'default';
+  btn.dataset.dataurl = enabled ? dataUrl : '';
+}
+
+async function showItemPhoto(scope, id, name){
+  currentPhotoScope = scope;
   currentPhotoItemId = id;
+  currentPhotoName = name;
   document.getElementById('photoModalTitle').textContent = '📷 ' + name;
   document.getElementById('photoModal').style.display = 'flex';
   const body = document.getElementById('photoModalBody');
   body.innerHTML = '불러오는 중...';
+  setPhotoDownloadEnabled(false);
   try {
-    const doc = await masterColRef.doc(id).collection('photo').doc('main').get();
+    const doc = await getPhotoDocRef(scope, id).get();
     if (doc.exists && doc.data().dataUrl) {
-      body.innerHTML = `<img src="${doc.data().dataUrl}" style="max-width:100%;border-radius:6px;display:block;margin:0 auto">`;
+      const dataUrl = doc.data().dataUrl;
+      body.innerHTML = `<img src="${dataUrl}" style="max-width:100%;border-radius:6px;display:block;margin:0 auto">`;
+      setPhotoDownloadEnabled(true, dataUrl);
     } else {
       body.innerHTML = '<div class="empty" style="padding:20px">등록된 사진이 없습니다.</div>';
     }
@@ -777,7 +800,10 @@ async function showItemPhoto(id, name){
 function closePhotoModal(){
   document.getElementById('photoModal').style.display = 'none';
   document.getElementById('photoFileInput').value = '';
+  currentPhotoScope = null;
   currentPhotoItemId = null;
+  currentPhotoName = '';
+  setPhotoDownloadEnabled(false);
 }
 
 function triggerPhotoUpload(){
@@ -786,7 +812,7 @@ function triggerPhotoUpload(){
 
 async function handlePhotoUpload(event){
   const file = event.target.files[0];
-  if (!file || !currentPhotoItemId) return;
+  if (!file || !currentPhotoItemId || !currentPhotoScope) return;
   const body = document.getElementById('photoModalBody');
   body.innerHTML = '이미지 압축 중...';
   try {
@@ -798,11 +824,12 @@ async function handlePhotoUpload(event){
       event.target.value = '';
       return;
     }
-    await masterColRef.doc(currentPhotoItemId).collection('photo').doc('main').set({
+    await getPhotoDocRef(currentPhotoScope, currentPhotoItemId).set({
       dataUrl,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     body.innerHTML = `<img src="${dataUrl}" style="max-width:100%;border-radius:6px;display:block;margin:0 auto">`;
+    setPhotoDownloadEnabled(true, dataUrl);
   } catch (e) {
     console.error(e);
     alert('이미지 업로드에 실패했습니다.');
@@ -812,10 +839,25 @@ async function handlePhotoUpload(event){
 }
 
 async function deleteItemPhoto(){
-  if (!currentPhotoItemId) return;
+  if (!currentPhotoItemId || !currentPhotoScope) return;
   if (!confirm('이 사진을 삭제할까요?')) return;
-  await masterColRef.doc(currentPhotoItemId).collection('photo').doc('main').delete();
+  await getPhotoDocRef(currentPhotoScope, currentPhotoItemId).delete();
   document.getElementById('photoModalBody').innerHTML = '<div class="empty" style="padding:20px">등록된 사진이 없습니다.</div>';
+  setPhotoDownloadEnabled(false);
+}
+
+function downloadItemPhoto(){
+  const btn = document.getElementById('photoDownloadBtn');
+  const dataUrl = btn ? btn.dataset.dataurl : '';
+  if (!dataUrl) return;
+  const ext = dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
+  const safeName = (currentPhotoName || 'photo').replace(/[\/:*?"<>|]/g, '_');
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `${safeName}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // ── Excel 가져오기 (시트 → 웹) ──
@@ -1211,6 +1253,7 @@ function render(){
           <td class="center">${esc(r.unit)}</td>
           <td class="note">${esc(r.note)}</td>
           <td class="actions">
+            <button class="btn btn-secondary btn-sm" data-id="${r.id}" data-name="${esc(r.ingredientName || r.productCode || '재료')}" onclick="showItemPhoto('nutrition', this.dataset.id, this.dataset.name)">📷 사진</button>
             <button class="btn btn-secondary btn-sm" onclick="startEdit('${r.id}')">수정</button>
             <button class="btn btn-danger btn-sm" onclick="deleteRow('${r.id}')">삭제</button>
           </td>
