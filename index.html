@@ -70,6 +70,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f5;color:#222;font-si
 .filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;background:#fff;border:1px solid #dde3ea;border-radius:8px;padding:10px 14px}
 .filter-bar input,.filter-bar select{border:1px solid #dde3ea;border-radius:5px;padding:6px 9px;font-size:12px;font-family:'Noto Sans KR',sans-serif}
 
+.page-tabs{display:flex;gap:6px;margin-bottom:14px}
+.page-tab{padding:10px 18px;font-size:13px;font-weight:700;color:#666;border:1px solid #dde3ea;background:#fff;border-radius:8px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.page-tab:hover{background:#f8f9fb}
+.page-tab.active{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+
 .cat-tabs{display:flex;gap:0;overflow-x:auto;background:#fff;border:1px solid #dde3ea;border-radius:8px;padding:0 6px;margin-bottom:12px}
 .cat-tab{padding:11px 14px;font-size:12.5px;font-weight:600;color:#888;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
 .cat-tab:hover{color:#1a3a5c;background:#f8f9fb}
@@ -163,6 +168,13 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
 
 <div class="content">
 
+  <div class="page-tabs" id="pageTabs">
+    <button class="page-tab active" data-page="nutrition" onclick="setPageTab(this.dataset.page)">🥗 영양성분표 품목매칭</button>
+    <button class="page-tab" data-page="master" onclick="setPageTab(this.dataset.page)">📦 마스터 관리</button>
+  </div>
+
+  <div id="nutritionSection">
+
   <div class="stat-row">
     <div class="stat-card"><div class="lbl">총 항목 수</div><div class="val" id="statTotal">0</div></div>
     <div class="stat-card"><div class="lbl">메뉴 수</div><div class="val" id="statMenus">0</div></div>
@@ -233,6 +245,60 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
     </div>
   </div>
 
+  </div><!-- /nutritionSection -->
+
+  <div id="masterSection" style="display:none">
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="lbl">총 품목 수</div><div class="val" id="statMasterTotal">0</div></div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-title">➕ 품목 추가</div>
+      <div class="form-grid">
+        <div class="fg"><label>상품코드 *</label><input type="text" id="m_code" placeholder="예: 340250"></div>
+        <div class="fg"><label>품목명 *</label><input type="text" id="m_name" placeholder="품목표 정식 명칭"></div>
+        <div class="fg"><label>저장조건</label><input type="text" id="m_storage" placeholder="예: 냉장/냉동/상온"></div>
+        <div class="fg"><label>포장단위</label><input type="text" id="m_packUnit" placeholder="예: 1Kg/EA"></div>
+        <div class="fg"><label>주문단위</label><input type="text" id="m_orderUnit" placeholder="예: EA, BOX"></div>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-primary" onclick="addMasterItem()">✚ 추가</button>
+        <button class="btn btn-secondary" onclick="clearMasterForm()">↺ 초기화</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="m_search" placeholder="상품코드 · 품목명 검색" oninput="renderMaster()" style="min-width:220px">
+      <button class="btn btn-secondary btn-sm" onclick="resetMasterFilter()">✕ 초기화</button>
+    </div>
+
+    <div class="tbl-card">
+      <div class="tbl-header">
+        <h3>식재 마스터 데이터</h3>
+        <span class="tbl-cnt" id="masterTblCnt">0건</span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:110px">상품코드</th>
+              <th style="min-width:220px">품목명</th>
+              <th style="width:100px">저장조건</th>
+              <th style="width:120px">포장단위</th>
+              <th style="width:100px">주문단위</th>
+              <th style="width:140px">작업</th>
+            </tr>
+          </thead>
+          <tbody id="masterTbody">
+            <tr><td colspan="6" class="empty">불러오는 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /masterSection -->
+
   <div class="footer-note">Firebase 실시간 동기화 · 어느 컴퓨터에서든 접속 시 자동으로 최신 데이터가 반영됩니다.</div>
 </div>
 
@@ -243,6 +309,7 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
 const firebaseConfig = {"apiKey": "AIzaSyA0hx9tpJOWsEOEWkjBMMYlhmxKs1CkcOE", "authDomain": "nutritional-analysis-c18e1.firebaseapp.com", "projectId": "nutritional-analysis-c18e1", "storageBucket": "nutritional-analysis-c18e1.firebasestorage.app", "messagingSenderId": "877954534531", "appId": "1:877954534531:web:74d1c9bca98424a36b1fb6"};
 let db = null;
 let colRef = null;
+let masterColRef = null;
 
 // ── 임베드 데이터 ──
 const SEED_DATA = [{"category": "커피", "menu": "에스프레소", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 0, "order": 0}, {"category": "커피", "menu": "아메리카노 HOT", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 1, "order": 0}, {"category": "커피", "menu": "아메리카노 ICE", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 2, "order": 0}, {"category": "커피", "menu": "카페라떼 HOT", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 3, "order": 0}, {"category": "커피", "menu": "카페라떼 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 280, "unit": "g", "note": "", "groupOrder": 3, "order": 1}, {"category": "커피", "menu": "카페라떼 ICE", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 4, "order": 0}, {"category": "커피", "menu": "카페라떼 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 170, "unit": "g", "note": "", "groupOrder": 4, "order": 1}, {"category": "커피", "menu": "카푸치노 HOT", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 5, "order": 0}, {"category": "커피", "menu": "카푸치노 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 200, "unit": "g", "note": "", "groupOrder": 5, "order": 1}, {"category": "커피", "menu": "바다소금커피 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 99.4, "unit": "g", "note": "연유베이스 180g 사용분 비율환산(전체 1810g 중 우유1000g)", "groupOrder": 6, "order": 0}, {"category": "커피", "menu": "바다소금커피 ICE", "productCode": "453703", "ingredientName": "으오이사오퐁남(베트남연유_VINAMILK 380g/EA)", "qty": 59.7, "unit": "g", "note": "연유베이스 비율환산(베트남연유600g)", "groupOrder": 6, "order": 1}, {"category": "커피", "menu": "바다소금커피 ICE", "productCode": "330264", "ingredientName": "말돈 꽃소금(250g/EA)", "qty": 1.0, "unit": "g", "note": "연유베이스 비율환산(말돈소금10g)", "groupOrder": 6, "order": 2}, {"category": "커피", "menu": "바다소금커피 ICE", "productCode": "112322", "ingredientName": "서울우유 생크림(500ml_동물성 500g/EA)", "qty": 19.9, "unit": "g", "note": "연유베이스 비율환산(생크림200g)", "groupOrder": 6, "order": 3}, {"category": "커피", "menu": "바다소금커피 ICE", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 6, "order": 4}, {"category": "커피", "menu": "바닐라라떼 HOT", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 7, "order": 0}, {"category": "커피", "menu": "바닐라라떼 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 270, "unit": "g", "note": "", "groupOrder": 7, "order": 1}, {"category": "커피", "menu": "바닐라라떼 HOT", "productCode": "123569", "ingredientName": "빅트레인 바닐라라떼파우더(1.588Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 7, "order": 2}, {"category": "커피", "menu": "바닐라라떼 HOT", "productCode": "122598", "ingredientName": "1883 바닐라시럽(1L 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 7, "order": 3}, {"category": "커피", "menu": "바닐라라떼 ICE", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 8, "order": 0}, {"category": "커피", "menu": "바닐라라떼 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 160, "unit": "g", "note": "", "groupOrder": 8, "order": 1}, {"category": "커피", "menu": "바닐라라떼 ICE", "productCode": "123569", "ingredientName": "빅트레인 바닐라라떼파우더(1.588Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 8, "order": 2}, {"category": "커피", "menu": "바닐라라떼 ICE", "productCode": "122598", "ingredientName": "1883 바닐라시럽(1L 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 8, "order": 3}, {"category": "커피", "menu": "카페모카 HOT", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 9, "order": 0}, {"category": "커피", "menu": "카페모카 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 270, "unit": "g", "note": "", "groupOrder": 9, "order": 1}, {"category": "커피", "menu": "카페모카 HOT", "productCode": "140500", "ingredientName": "모닌 케인슈가시럽(1L 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 9, "order": 2}, {"category": "커피", "menu": "카페모카 HOT", "productCode": "167279", "ingredientName": "기라델리 초콜릿소스(2.47Kg/EA)", "qty": 36, "unit": "g", "note": "", "groupOrder": 9, "order": 3}, {"category": "커피", "menu": "카페모카 HOT", "productCode": "331528", "ingredientName": "서울우유 바리스타휘핑크림(스프레이타입 500g/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 9, "order": 4}, {"category": "커피", "menu": "카페모카 ICE", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 10, "order": 0}, {"category": "커피", "menu": "카페모카 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 160, "unit": "g", "note": "", "groupOrder": 10, "order": 1}, {"category": "커피", "menu": "카페모카 ICE", "productCode": "140500", "ingredientName": "모닌 케인슈가시럽(1L 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 10, "order": 2}, {"category": "커피", "menu": "카페모카 ICE", "productCode": "167279", "ingredientName": "기라델리 초콜릿소스(2.47Kg/EA)", "qty": 36, "unit": "g", "note": "", "groupOrder": 10, "order": 3}, {"category": "커피", "menu": "카페모카 ICE", "productCode": "331528", "ingredientName": "서울우유 바리스타휘핑크림(스프레이타입 500g/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 10, "order": 4}, {"category": "커피", "menu": "카라멜마끼아또 HOT", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 11, "order": 0}, {"category": "커피", "menu": "카라멜마끼아또 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 270, "unit": "g", "note": "", "groupOrder": 11, "order": 1}, {"category": "커피", "menu": "카라멜마끼아또 HOT", "productCode": "122598", "ingredientName": "1883 바닐라시럽(1L 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 11, "order": 2}, {"category": "커피", "menu": "카라멜마끼아또 HOT", "productCode": "152660", "ingredientName": "기라델리 캐러멜소스(2.56Kg/EA)", "qty": 36, "unit": "g", "note": "믹스용(확인완료)", "groupOrder": 11, "order": 3}, {"category": "커피", "menu": "카라멜마끼아또 HOT", "productCode": "152660", "ingredientName": "기라델리 캐러멜소스(2.56Kg/EA)", "qty": 10, "unit": "g", "note": "드리즐 토핑용 추가(확인완료)", "groupOrder": 11, "order": 4}, {"category": "커피", "menu": "카라멜마끼아또 ICE", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 12, "order": 0}, {"category": "커피", "menu": "카라멜마끼아또 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 160, "unit": "g", "note": "", "groupOrder": 12, "order": 1}, {"category": "커피", "menu": "카라멜마끼아또 ICE", "productCode": "122598", "ingredientName": "1883 바닐라시럽(1L 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 12, "order": 2}, {"category": "커피", "menu": "카라멜마끼아또 ICE", "productCode": "152660", "ingredientName": "기라델리 캐러멜소스(2.56Kg/EA)", "qty": 36, "unit": "g", "note": "믹스용(확인완료)", "groupOrder": 12, "order": 3}, {"category": "커피", "menu": "카라멜마끼아또 ICE", "productCode": "152660", "ingredientName": "기라델리 캐러멜소스(2.56Kg/EA)", "qty": 10, "unit": "g", "note": "드리즐 토핑용 추가(확인완료)", "groupOrder": 12, "order": 4}, {"category": "커피", "menu": "연유라떼 HOT", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 13, "order": 0}, {"category": "커피", "menu": "연유라떼 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 270, "unit": "g", "note": "", "groupOrder": 13, "order": 1}, {"category": "커피", "menu": "연유라떼 HOT", "productCode": "374165", "ingredientName": "이츠웰 연유(파우치 1Kg/EA)", "qty": 50, "unit": "g", "note": "확인완료(원본 레시피 기준)", "groupOrder": 13, "order": 2}, {"category": "커피", "menu": "연유라떼 ICE", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 14, "order": 0}, {"category": "커피", "menu": "연유라떼 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 160, "unit": "g", "note": "", "groupOrder": 14, "order": 1}, {"category": "커피", "menu": "연유라떼 ICE", "productCode": "374165", "ingredientName": "이츠웰 연유(파우치 1Kg/EA)", "qty": 50, "unit": "g", "note": "확인완료(원본 레시피 기준)", "groupOrder": 14, "order": 2}, {"category": "커피", "menu": "길리", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 19, "unit": "g", "note": "", "groupOrder": 15, "order": 0}, {"category": "커피", "menu": "길리", "productCode": "159266", "ingredientName": "1883 시나몬시럽(1L 1Kg/EA)", "qty": 20, "unit": "g", "note": "", "groupOrder": 15, "order": 1}, {"category": "커피", "menu": "길리", "productCode": "136656", "ingredientName": "치악산 사양꿀(1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 15, "order": 2}, {"category": "커피", "menu": "길리", "productCode": "299153", "ingredientName": "포모나 말차파우더(500g/EA)", "qty": 16, "unit": "g", "note": "말차소스+토핑+가니쉬 파우더 합산 비율환산", "groupOrder": 15, "order": 3}, {"category": "커피", "menu": "길리", "productCode": "112322", "ingredientName": "서울우유 생크림(500ml_동물성 500g/EA)", "qty": 50, "unit": "g", "note": "", "groupOrder": 15, "order": 4}, {"category": "커피", "menu": "길리", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 150, "unit": "g", "note": "", "groupOrder": 15, "order": 5}, {"category": "보난자", "menu": "보난자 아메리카노 HOT", "productCode": "AW00429", "ingredientName": "보난자_보난자 블렌드 1kg", "qty": 20, "unit": "g", "note": "", "groupOrder": 16, "order": 0}, {"category": "보난자", "menu": "보난자 아메리카노 ICE", "productCode": "AW00429", "ingredientName": "보난자_보난자 블렌드 1kg", "qty": 20, "unit": "g", "note": "", "groupOrder": 17, "order": 0}, {"category": "보난자", "menu": "보난자 카페라떼 HOT", "productCode": "AW00429", "ingredientName": "보난자_보난자 블렌드 1kg", "qty": 20, "unit": "g", "note": "", "groupOrder": 18, "order": 0}, {"category": "보난자", "menu": "보난자 카페라떼 HOT", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 190, "unit": "g", "note": "", "groupOrder": 18, "order": 1}, {"category": "보난자", "menu": "보난자 카페라떼 ICE", "productCode": "AW00429", "ingredientName": "보난자_보난자 블렌드 1kg", "qty": 20, "unit": "g", "note": "", "groupOrder": 19, "order": 0}, {"category": "보난자", "menu": "보난자 카페라떼 ICE", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 150, "unit": "g", "note": "", "groupOrder": 19, "order": 1}, {"category": "보난자", "menu": "보난자 바닐라라떼 HOT", "productCode": "AW00429", "ingredientName": "보난자_보난자 블렌드 1kg", "qty": 20, "unit": "g", "note": "", "groupOrder": 20, "order": 0}, {"category": "보난자", "menu": "보난자 바닐라라떼 HOT", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 170, "unit": "g", "note": "", "groupOrder": 20, "order": 1}, {"category": "보난자", "menu": "보난자 바닐라라떼 HOT", "productCode": "OT0055", "ingredientName": "선인 바닐라빈파우더 100g", "qty": 0.09, "unit": "g", "note": "", "groupOrder": 20, "order": 2}, {"category": "보난자", "menu": "보난자 바닐라라떼 HOT", "productCode": "271174", "ingredientName": "백설 하얀설탕(1Kg/EA)", "qty": 15.15, "unit": "g", "note": "", "groupOrder": 20, "order": 3}, {"category": "보난자", "menu": "보난자 바닐라라떼 ICE", "productCode": "AW00429", "ingredientName": "보난자_보난자 블렌드 1kg", "qty": 20, "unit": "g", "note": "", "groupOrder": 21, "order": 0}, {"category": "보난자", "menu": "보난자 바닐라라떼 ICE", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 140, "unit": "g", "note": "", "groupOrder": 21, "order": 1}, {"category": "보난자", "menu": "보난자 바닐라라떼 ICE", "productCode": "OT0055", "ingredientName": "선인 바닐라빈파우더 100g", "qty": 0.09, "unit": "g", "note": "", "groupOrder": 21, "order": 2}, {"category": "보난자", "menu": "보난자 바닐라라떼 ICE", "productCode": "271174", "ingredientName": "백설 하얀설탕(1Kg/EA)", "qty": 15.2, "unit": "g", "note": "", "groupOrder": 21, "order": 3}, {"category": "콜드브루", "menu": "콜드브루", "productCode": "341992", "ingredientName": "핸디엄 콜드브루커피원액(케냐_1L 1Kg/EA)", "qty": 100, "unit": "g", "note": "", "groupOrder": 22, "order": 0}, {"category": "콜드브루", "menu": "콜드브루라떼", "productCode": "341992", "ingredientName": "핸디엄 콜드브루커피원액(케냐_1L 1Kg/EA)", "qty": 100, "unit": "g", "note": "", "groupOrder": 23, "order": 0}, {"category": "콜드브루", "menu": "콜드브루라떼", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 150, "unit": "g", "note": "", "groupOrder": 23, "order": 1}, {"category": "콜드브루", "menu": "콜드브루 돌체라떼", "productCode": "341992", "ingredientName": "핸디엄 콜드브루커피원액(케냐_1L 1Kg/EA)", "qty": 100, "unit": "g", "note": "", "groupOrder": 24, "order": 0}, {"category": "콜드브루", "menu": "콜드브루 돌체라떼", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 150, "unit": "g", "note": "", "groupOrder": 24, "order": 1}, {"category": "콜드브루", "menu": "콜드브루 돌체라떼", "productCode": "374165", "ingredientName": "이츠웰 연유(파우치 1Kg/EA)", "qty": 50, "unit": "g", "note": "", "groupOrder": 24, "order": 2}, {"category": "콜드브루", "menu": "콜드브루 아인슈패너", "productCode": "341992", "ingredientName": "핸디엄 콜드브루커피원액(케냐_1L 1Kg/EA)", "qty": 84, "unit": "g", "note": "콜드브루베이스 210g 비율환산(7배합 중 원액분)", "groupOrder": 25, "order": 0}, {"category": "콜드브루", "menu": "콜드브루 아인슈패너", "productCode": "112322", "ingredientName": "서울우유 생크림(500ml_동물성 500g/EA)", "qty": 32.3, "unit": "g", "note": "아인슈패너크림 비율환산(생크림)", "groupOrder": 25, "order": 1}, {"category": "콜드브루", "menu": "콜드브루 아인슈패너", "productCode": "271174", "ingredientName": "백설 하얀설탕(1Kg/EA)", "qty": 3.2, "unit": "g", "note": "아인슈패너크림 비율환산(백설탕)", "groupOrder": 25, "order": 2}, {"category": "콜드브루", "menu": "콜드브루 아인슈패너", "productCode": "459474", "ingredientName": "SHOTT 쿼터패스트마누카허니시럽(1.5L 1.5Kg/EA)", "qty": 4.5, "unit": "g", "note": "아인슈패너크림 비율환산(SHOTT 마누카허니시럽, 확인완료)", "groupOrder": 25, "order": 3}, {"category": "콜드브루", "menu": "Decaf. 콜드브루", "productCode": "AW00128", "ingredientName": "모모스커피_콜드브루 원액 디카페인(1000ml)", "qty": 60, "unit": "g", "note": "", "groupOrder": 26, "order": 0}, {"category": "콜드브루", "menu": "Decaf. 콜드브루라떼", "productCode": "AW00128", "ingredientName": "모모스커피_콜드브루 원액 디카페인(1000ml)", "qty": 60, "unit": "g", "note": "", "groupOrder": 27, "order": 0}, {"category": "콜드브루", "menu": "Decaf. 콜드브루라떼", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 180, "unit": "g", "note": "", "groupOrder": 27, "order": 1}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 돌체라떼", "productCode": "AW00128", "ingredientName": "모모스커피_콜드브루 원액 디카페인(1000ml)", "qty": 60, "unit": "g", "note": "", "groupOrder": 28, "order": 0}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 돌체라떼", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 180, "unit": "g", "note": "", "groupOrder": 28, "order": 1}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 돌체라떼", "productCode": "374165", "ingredientName": "이츠웰 연유(파우치 1Kg/EA)", "qty": 50, "unit": "g", "note": "", "groupOrder": 28, "order": 2}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 토닉", "productCode": "AW00128", "ingredientName": "모모스커피_콜드브루 원액 디카페인(1000ml)", "qty": 60, "unit": "g", "note": "", "groupOrder": 29, "order": 0}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 토닉", "productCode": "101349", "ingredientName": "하이트진로 토닉워터(PET_300ml 300g/EA)", "qty": 180, "unit": "g", "note": "", "groupOrder": 29, "order": 1}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 토닉", "productCode": "218525", "ingredientName": "오렌지(72과_230g*4개입 생과용 920g/EA)", "qty": 15, "unit": "g", "note": "반달오렌지 1ea 추정중량", "groupOrder": 29, "order": 2}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 아인슈패너", "productCode": "AW00128", "ingredientName": "모모스커피_콜드브루 원액 디카페인(1000ml)", "qty": 60, "unit": "g", "note": "", "groupOrder": 30, "order": 0}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 아인슈패너", "productCode": "112322", "ingredientName": "서울우유 생크림(500ml_동물성 500g/EA)", "qty": 32.3, "unit": "g", "note": "아인슈패너크림 비율환산(생크림)", "groupOrder": 30, "order": 1}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 아인슈패너", "productCode": "271174", "ingredientName": "백설 하얀설탕(1Kg/EA)", "qty": 3.2, "unit": "g", "note": "아인슈패너크림 비율환산(백설탕)", "groupOrder": 30, "order": 2}, {"category": "콜드브루", "menu": "Decaf. 콜드브루 아인슈패너", "productCode": "459474", "ingredientName": "SHOTT 쿼터패스트마누카허니시럽(1.5L 1.5Kg/EA)", "qty": 4.5, "unit": "g", "note": "아인슈패너크림 비율환산(SHOTT 마누카허니시럽, 확인완료)", "groupOrder": 30, "order": 3}, {"category": "에스프레소바", "menu": "보난자 에스프레소", "productCode": "AW00433", "ingredientName": "보난자_다크 브라질 1kg", "qty": 22.5, "unit": "g", "note": "", "groupOrder": 31, "order": 0}, {"category": "에스프레소바", "menu": "보난자 에스프레소 마끼아또", "productCode": "AW00433", "ingredientName": "보난자_다크 브라질 1kg", "qty": 22.5, "unit": "g", "note": "", "groupOrder": 32, "order": 0}, {"category": "에스프레소바", "menu": "보난자 에스프레소 마끼아또", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 120, "unit": "g", "note": "", "groupOrder": 32, "order": 1}, {"category": "에스프레소바", "menu": "보난자 플랫화이트 HOT", "productCode": "AW00433", "ingredientName": "보난자_다크 브라질 1kg", "qty": 22.5, "unit": "g", "note": "", "groupOrder": 33, "order": 0}, {"category": "에스프레소바", "menu": "보난자 플랫화이트 HOT", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 190, "unit": "g", "note": "", "groupOrder": 33, "order": 1}, {"category": "에스프레소바", "menu": "보난자 플랫화이트 ICE", "productCode": "AW00433", "ingredientName": "보난자_다크 브라질 1kg", "qty": 22.5, "unit": "g", "note": "", "groupOrder": 34, "order": 0}, {"category": "에스프레소바", "menu": "보난자 플랫화이트 ICE", "productCode": "112175", "ingredientName": "매일유업 흰우유(1L 1Kg/EA)", "qty": 120, "unit": "g", "note": "", "groupOrder": 34, "order": 1}, {"category": "에스프레소바", "menu": "보난자 샤케라또", "productCode": "AW00433", "ingredientName": "보난자_다크 브라질 1kg", "qty": 22.5, "unit": "g", "note": "", "groupOrder": 35, "order": 0}, {"category": "에스프레소바", "menu": "보난자 샤케라또", "productCode": "", "ingredientName": "라빠르쉐 비정제 스틱설탕 1.2kg 낱개포장 (4g x 300개입)", "qty": 2, "unit": "ea", "note": "라빠르쉐 스틱설탕(품목표에 제품코드 미부여, 4g x 300개입)", "groupOrder": 35, "order": 1}, {"category": "웰니스", "menu": "단백질라떼 (블랙빈)", "productCode": "TS100125", "ingredientName": "홀블렌딩_식물성 단백질 쉐이크 블랙빈", "qty": 45, "unit": "g", "note": "", "groupOrder": 36, "order": 0}, {"category": "웰니스", "menu": "단백질라떼 (블랙빈)", "productCode": "294976", "ingredientName": "매일유업 무첨가두유(950ml_99.9 950g/EA)", "qty": 200, "unit": "g", "note": "", "groupOrder": 36, "order": 1}, {"category": "웰니스", "menu": "단백질라떼 (카카오)", "productCode": "", "ingredientName": "**미등록 품목-확인필요**", "qty": 45, "unit": "g", "note": "카카오맛 단백질파우더 - 품목표에 해당 상품 미확인, 확인 필요", "groupOrder": 37, "order": 0}, {"category": "웰니스", "menu": "단백질라떼 (카카오)", "productCode": "294976", "ingredientName": "매일유업 무첨가두유(950ml_99.9 950g/EA)", "qty": 200, "unit": "g", "note": "", "groupOrder": 37, "order": 1}, {"category": "웰니스", "menu": "쌍화차", "productCode": "TS100154", "ingredientName": "티어스_쌍화차 오리진 패밀리팩(1kg)", "qty": 50, "unit": "g", "note": "", "groupOrder": 38, "order": 0}, {"category": "웰니스", "menu": "쌍화차", "productCode": "136656", "ingredientName": "치악산 사양꿀(1Kg/EA)", "qty": 20, "unit": "g", "note": "", "groupOrder": 38, "order": 1}, {"category": "티", "menu": "타바론 프룻드림티 HOT", "productCode": "OT0045", "ingredientName": "타바론_후르츠드림", "qty": 1, "unit": "개", "note": "", "groupOrder": 39, "order": 0}, {"category": "티", "menu": "타바론 프룻드림티 ICE", "productCode": "OT0045", "ingredientName": "타바론_후르츠드림", "qty": 1, "unit": "개", "note": "", "groupOrder": 40, "order": 0}, {"category": "티", "menu": "맥파이앤타이거(감잎) HOT", "productCode": "OT0043", "ingredientName": "맥파이앤타이거_감잎차(100EA)", "qty": 2, "unit": "개", "note": "", "groupOrder": 41, "order": 0}, {"category": "티", "menu": "맥파이앤타이거(감잎) ICE", "productCode": "OT0043", "ingredientName": "맥파이앤타이거_감잎차(100EA)", "qty": 2, "unit": "개", "note": "", "groupOrder": 42, "order": 0}, {"category": "티", "menu": "맥파이앤타이거(쑥) HOT", "productCode": "OT0044", "ingredientName": "맥파이앤타이거_쑥차(100EA)", "qty": 2, "unit": "개", "note": "", "groupOrder": 43, "order": 0}, {"category": "티", "menu": "맥파이앤타이거(쑥) ICE", "productCode": "OT0044", "ingredientName": "맥파이앤타이거_쑥차(100EA)", "qty": 2, "unit": "개", "note": "", "groupOrder": 44, "order": 0}, {"category": "티", "menu": "허니레몬티 HOT", "productCode": "136656", "ingredientName": "치악산 사양꿀(1Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 45, "order": 0}, {"category": "티", "menu": "허니레몬티 HOT", "productCode": "140500", "ingredientName": "모닌 케인슈가시럽(1L 1Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 45, "order": 1}, {"category": "티", "menu": "허니레몬티 HOT", "productCode": "219859", "ingredientName": "레몬(팬시 140과_100g*3개입 300g/EA)", "qty": 30, "unit": "g", "note": "레몬웨지 2개=약 15g/개 추정", "groupOrder": 45, "order": 2}, {"category": "티", "menu": "허니레몬티 HOT", "productCode": "TS100020", "ingredientName": "TWG_프렌치얼그레이(200EA)", "qty": 1, "unit": "개", "note": "TWG 얼그레이=프렌치얼그레이(확인완료)", "groupOrder": 45, "order": 3}, {"category": "티", "menu": "허니레몬티 ICE", "productCode": "136656", "ingredientName": "치악산 사양꿀(1Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 46, "order": 0}, {"category": "티", "menu": "허니레몬티 ICE", "productCode": "140500", "ingredientName": "모닌 케인슈가시럽(1L 1Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 46, "order": 1}, {"category": "티", "menu": "허니레몬티 ICE", "productCode": "219859", "ingredientName": "레몬(팬시 140과_100g*3개입 300g/EA)", "qty": 30, "unit": "g", "note": "레몬웨지 2개=약 15g/개 추정", "groupOrder": 46, "order": 2}, {"category": "티", "menu": "허니레몬티 ICE", "productCode": "TS100020", "ingredientName": "TWG_프렌치얼그레이(200EA)", "qty": 1, "unit": "개", "note": "TWG 얼그레이=프렌치얼그레이(확인완료)", "groupOrder": 46, "order": 3}, {"category": "티", "menu": "광양매실차 HOT", "productCode": "H000011", "ingredientName": "홍쌍리 매실원액 20kg", "qty": 70, "unit": "g", "note": "", "groupOrder": 47, "order": 0}, {"category": "티", "menu": "광양매실차 ICE", "productCode": "H000011", "ingredientName": "홍쌍리 매실원액 20kg", "qty": 70, "unit": "g", "note": "", "groupOrder": 48, "order": 0}, {"category": "티", "menu": "유자레몬티 HOT", "productCode": "122137", "ingredientName": "세미기업 레몬드링크원액(1.36Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 49, "order": 0}, {"category": "티", "menu": "유자레몬티 HOT", "productCode": "165914", "ingredientName": "꽃샘식품 꿀유자차(1Kg/EA)", "qty": 70, "unit": "g", "note": "유자청=꽃샘식품 꿀유자차(확인완료)", "groupOrder": 49, "order": 1}, {"category": "티", "menu": "유자레몬티 ICE", "productCode": "122137", "ingredientName": "세미기업 레몬드링크원액(1.36Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 50, "order": 0}, {"category": "티", "menu": "유자레몬티 ICE", "productCode": "165914", "ingredientName": "꽃샘식품 꿀유자차(1Kg/EA)", "qty": 70, "unit": "g", "note": "유자청=꽃샘식품 꿀유자차(확인완료)", "groupOrder": 50, "order": 1}, {"category": "티", "menu": "유자레몬티 ICE", "productCode": "219859", "ingredientName": "레몬(팬시 140과_100g*3개입 300g/EA)", "qty": 15, "unit": "g", "note": "반달레몬슬라이스 1개 추정중량", "groupOrder": 50, "order": 2}, {"category": "음료", "menu": "로얄밀크티 HOT", "productCode": "467101", "ingredientName": "메이토 로얄밀크티(NEW 400g/EA)", "qty": 40, "unit": "g", "note": "", "groupOrder": 51, "order": 0}, {"category": "음료", "menu": "로얄밀크티 HOT", "productCode": "249436", "ingredientName": "베티나르디 얼그레이티(1.5g*30T 45g/EA)", "qty": 1.5, "unit": "g(1개)", "note": "", "groupOrder": 51, "order": 1}, {"category": "음료", "menu": "로얄밀크티 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 300, "unit": "g", "note": "스팀우유280g+우유거품20g 합산", "groupOrder": 51, "order": 2}, {"category": "음료", "menu": "로얄밀크티 ICE", "productCode": "467101", "ingredientName": "메이토 로얄밀크티(NEW 400g/EA)", "qty": 40, "unit": "g", "note": "", "groupOrder": 52, "order": 0}, {"category": "음료", "menu": "로얄밀크티 ICE", "productCode": "249436", "ingredientName": "베티나르디 얼그레이티(1.5g*30T 45g/EA)", "qty": 1.5, "unit": "g(1개)", "note": "", "groupOrder": 52, "order": 1}, {"category": "음료", "menu": "로얄밀크티 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 160, "unit": "g", "note": "", "groupOrder": 52, "order": 2}, {"category": "음료", "menu": "루이보스밀크티 HOT", "productCode": "OT0042", "ingredientName": "타바론_루이보스밀크티 베이스", "qty": 35, "unit": "g", "note": "루이보스 아몬드시럽. 루이보스 티베이스(찻물)는 열량 미미하여 제외", "groupOrder": 53, "order": 0}, {"category": "음료", "menu": "루이보스밀크티 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 260, "unit": "g", "note": "", "groupOrder": 53, "order": 1}, {"category": "음료", "menu": "루이보스밀크티 ICE", "productCode": "OT0042", "ingredientName": "타바론_루이보스밀크티 베이스", "qty": 35, "unit": "g", "note": "루이보스 아몬드시럽. 루이보스 티베이스(찻물)는 열량 미미하여 제외", "groupOrder": 54, "order": 0}, {"category": "음료", "menu": "루이보스밀크티 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 180, "unit": "g", "note": "", "groupOrder": 54, "order": 1}, {"category": "음료", "menu": "아이스티 배치(반통)", "productCode": "TS100020", "ingredientName": "TWG_프렌치얼그레이(200EA)", "qty": 1, "unit": "개", "note": "TWG 얼그레이(대체매칭)", "groupOrder": 55, "order": 0}, {"category": "음료", "menu": "아이스티 배치(반통)", "productCode": "435230", "ingredientName": "타코 복숭아아이스티파우더(제로슈가 1Kg/EA)", "qty": 100, "unit": "g", "note": "", "groupOrder": 55, "order": 1}, {"category": "음료", "menu": "아이스티 배치(1통)", "productCode": "TS100020", "ingredientName": "TWG_프렌치얼그레이(200EA)", "qty": 2, "unit": "개", "note": "TWG 얼그레이(대체매칭)", "groupOrder": 56, "order": 0}, {"category": "음료", "menu": "아이스티 배치(1통)", "productCode": "435230", "ingredientName": "타코 복숭아아이스티파우더(제로슈가 1Kg/EA)", "qty": 200, "unit": "g", "note": "", "groupOrder": 56, "order": 1}, {"category": "음료", "menu": "식혜", "productCode": "166935", "ingredientName": "서정쿠킹 이천쌀로만든식혜(1L 1Kg/EA)", "qty": 200, "unit": "g", "note": "", "groupOrder": 57, "order": 0}, {"category": "음료", "menu": "플레인요거트드링크", "productCode": "140500", "ingredientName": "모닌 케인슈가시럽(1L 1Kg/EA)", "qty": 20, "unit": "g", "note": "", "groupOrder": 58, "order": 0}, {"category": "음료", "menu": "플레인요거트드링크", "productCode": "374148", "ingredientName": "이츠웰 요거트(플레인_우유팩 1Kg/EA)", "qty": 270, "unit": "g", "note": "", "groupOrder": 58, "order": 1}, {"category": "음료", "menu": "딸기요거트드링크", "productCode": "143764", "ingredientName": "앤드로스 딸기리플잼(1Kg/EA)", "qty": 50, "unit": "g", "note": "", "groupOrder": 59, "order": 0}, {"category": "음료", "menu": "딸기요거트드링크", "productCode": "374148", "ingredientName": "이츠웰 요거트(플레인_우유팩 1Kg/EA)", "qty": 270, "unit": "g", "note": "", "groupOrder": 59, "order": 1}, {"category": "음료", "menu": "청포도에이드", "productCode": "427352", "ingredientName": "프룻스타 청포도베이스(1Kg/EA)", "qty": 40, "unit": "g", "note": "", "groupOrder": 60, "order": 0}, {"category": "음료", "menu": "청포도에이드", "productCode": "140500", "ingredientName": "모닌 케인슈가시럽(1L 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 60, "order": 1}, {"category": "음료", "menu": "청포도에이드", "productCode": "427349", "ingredientName": "프룻스타 레몬베이스(1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 60, "order": 2}, {"category": "음료", "menu": "청포도에이드", "productCode": "491377", "ingredientName": "태향 나타드코코리치향(5mm 1Kg/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 60, "order": 3}, {"category": "음료", "menu": "자몽에이드", "productCode": "485295", "ingredientName": "흥국F&B 자몽에이드농축액(1.8Kg/EA)", "qty": 50, "unit": "g", "note": "", "groupOrder": 61, "order": 0}, {"category": "음료", "menu": "자몽에이드", "productCode": "140500", "ingredientName": "모닌 케인슈가시럽(1L 1Kg/EA)", "qty": 30, "unit": "g", "note": "슈가시럽 20g+10g 합산", "groupOrder": 61, "order": 1}, {"category": "음료", "menu": "자몽에이드", "productCode": "378932", "ingredientName": "자몽(300g이상*2개입 600g/EA)", "qty": 40, "unit": "g", "note": "자몽웨지 1개 추정중량", "groupOrder": 61, "order": 2}, {"category": "음료", "menu": "아망추", "productCode": "435230", "ingredientName": "타코 복숭아아이스티파우더(제로슈가 1Kg/EA)", "qty": 29.4, "unit": "g", "note": "아이스티 250g 중 타코아이스티파우더 비율환산", "groupOrder": 62, "order": 0}, {"category": "음료", "menu": "아망추", "productCode": "439158", "ingredientName": "대정 냉동망고(2.5cm다이스 1Kg/EA)", "qty": 70, "unit": "g", "note": "", "groupOrder": 62, "order": 1}, {"category": "음료", "menu": "초코라떼 HOT", "productCode": "335383", "ingredientName": "아임요 다크초코믹스(800g/EA)", "qty": 35, "unit": "g", "note": "", "groupOrder": 63, "order": 0}, {"category": "음료", "menu": "초코라떼 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 295, "unit": "g", "note": "베이스(1배합 240g)+추가우유90g 합산", "groupOrder": 63, "order": 1}, {"category": "음료", "menu": "초코라떼 ICE", "productCode": "335383", "ingredientName": "아임요 다크초코믹스(800g/EA)", "qty": 35, "unit": "g", "note": "", "groupOrder": 64, "order": 0}, {"category": "음료", "menu": "초코라떼 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 190, "unit": "g", "note": "", "groupOrder": 64, "order": 1}, {"category": "음료", "menu": "그린티라떼 HOT", "productCode": "116720", "ingredientName": "포모나 제주봄빛그린티(500g/EA)", "qty": 29.6, "unit": "g", "note": "녹차라떼베이스 230g 비율환산(파우더)", "groupOrder": 65, "order": 0}, {"category": "음료", "menu": "그린티라떼 HOT", "productCode": "348022", "ingredientName": "이든타운 녹차가루(1Kg/EA)", "qty": 3.0, "unit": "g", "note": "녹차라떼베이스 비율환산(녹차가루)", "groupOrder": 65, "order": 1}, {"category": "음료", "menu": "그린티라떼 HOT", "productCode": "374165", "ingredientName": "이츠웰 연유(파우치 1Kg/EA)", "qty": 9.9, "unit": "g", "note": "녹차라떼베이스 비율환산(연유)", "groupOrder": 65, "order": 2}, {"category": "음료", "menu": "그린티라떼 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 277.5, "unit": "g", "note": "녹차라떼베이스 비율환산(우유187.5g)+추가우유90g 합산", "groupOrder": 65, "order": 3}, {"category": "음료", "menu": "그린티라떼 ICE", "productCode": "116720", "ingredientName": "포모나 제주봄빛그린티(500g/EA)", "qty": 30, "unit": "g", "note": "", "groupOrder": 66, "order": 0}, {"category": "음료", "menu": "그린티라떼 ICE", "productCode": "348022", "ingredientName": "이든타운 녹차가루(1Kg/EA)", "qty": 3, "unit": "g", "note": "", "groupOrder": 66, "order": 1}, {"category": "음료", "menu": "그린티라떼 ICE", "productCode": "374165", "ingredientName": "이츠웰 연유(파우치 1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 66, "order": 2}, {"category": "음료", "menu": "그린티라떼 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 190, "unit": "g", "note": "", "groupOrder": 66, "order": 3}, {"category": "음료", "menu": "버블 추가옵션", "productCode": "359281", "ingredientName": "솜인터내셔널 타피오카펄(100g/EA)", "qty": 50, "unit": "g", "note": "버블밀크티/버블그린티라떼 등 기존 메뉴에 추가 시", "groupOrder": 67, "order": 0}, {"category": "시그니처", "menu": "쑥 프라페", "productCode": "355134", "ingredientName": "스위트컵 쑥라떼파우더(500g/EA)", "qty": 49.5, "unit": "g", "note": "쑥프라페베이스 190g 비율환산(9배합 중 쑥파우더)", "groupOrder": 68, "order": 0}, {"category": "시그니처", "menu": "쑥 프라페", "productCode": "371773", "ingredientName": "이든타운 쑥분말(1Kg/EA)", "qty": 2.0, "unit": "g", "note": "쑥프라페베이스 비율환산(쑥분말)", "groupOrder": 68, "order": 1}, {"category": "시그니처", "menu": "쑥 프라페", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 138.5, "unit": "g", "note": "쑥프라페베이스 비율환산(속편한우유)", "groupOrder": 68, "order": 2}, {"category": "시그니처", "menu": "쑥 프라페", "productCode": "136656", "ingredientName": "치악산 사양꿀(1Kg/EA)", "qty": 10, "unit": "g", "note": "", "groupOrder": 68, "order": 3}, {"category": "시그니처", "menu": "쑥라떼 HOT", "productCode": "355134", "ingredientName": "스위트컵 쑥라떼파우더(500g/EA)", "qty": 29.9, "unit": "g", "note": "쑥라떼베이스 200g 비율환산(9배합 중 쑥파우더)", "groupOrder": 69, "order": 0}, {"category": "시그니처", "menu": "쑥라떼 HOT", "productCode": "371773", "ingredientName": "이든타운 쑥분말(1Kg/EA)", "qty": 1.0, "unit": "g", "note": "쑥라떼베이스 비율환산(쑥분말)", "groupOrder": 69, "order": 1}, {"category": "시그니처", "menu": "쑥라떼 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 249.1, "unit": "g", "note": "쑥라떼베이스 비율환산(169.1g)+추가우유80g 합산", "groupOrder": 69, "order": 2}, {"category": "시그니처", "menu": "쑥라떼 ICE", "productCode": "355134", "ingredientName": "스위트컵 쑥라떼파우더(500g/EA)", "qty": 29.9, "unit": "g", "note": "쑥라떼베이스 200g 비율환산(9배합 중 쑥파우더)", "groupOrder": 70, "order": 0}, {"category": "시그니처", "menu": "쑥라떼 ICE", "productCode": "371773", "ingredientName": "이든타운 쑥분말(1Kg/EA)", "qty": 1.0, "unit": "g", "note": "쑥라떼베이스 비율환산(쑥분말)", "groupOrder": 70, "order": 1}, {"category": "시그니처", "menu": "쑥라떼 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 169.1, "unit": "g", "note": "쑥라떼베이스 비율환산(속편한우유)", "groupOrder": 70, "order": 2}, {"category": "시그니처", "menu": "우베밀크티 HOT", "productCode": "489319", "ingredientName": "네이쳐티 우베파우더(800g/EA)", "qty": 30, "unit": "g", "note": "우베베이스 150g 비율환산(12배합 중 우베파우더)", "groupOrder": 71, "order": 0}, {"category": "시그니처", "menu": "우베밀크티 HOT", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 170, "unit": "g", "note": "우베베이스 비율환산(120g)+추가우유50g 합산", "groupOrder": 71, "order": 1}, {"category": "시그니처", "menu": "우베밀크티 ICE", "productCode": "489319", "ingredientName": "네이쳐티 우베파우더(800g/EA)", "qty": 30, "unit": "g", "note": "우베베이스 150g 비율환산(12배합 중 우베파우더)", "groupOrder": 72, "order": 0}, {"category": "시그니처", "menu": "우베밀크티 ICE", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 120, "unit": "g", "note": "우베베이스 비율환산(속편한우유)", "groupOrder": 72, "order": 1}, {"category": "시그니처", "menu": "우베솔티 바닐라크림라떼", "productCode": "489319", "ingredientName": "네이쳐티 우베파우더(800g/EA)", "qty": 30, "unit": "g", "note": "우베베이스 150g 비율환산(우베파우더)", "groupOrder": 73, "order": 0}, {"category": "시그니처", "menu": "우베솔티 바닐라크림라떼", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 120, "unit": "g", "note": "우베베이스 비율환산(속편한우유)", "groupOrder": 73, "order": 1}, {"category": "시그니처", "menu": "우베솔티 바닐라크림라떼", "productCode": "340250", "ingredientName": "내추럴딥 원두커피(1Kg/EA)", "qty": 9.5, "unit": "g", "note": "에스프레소 1샷 원두환산", "groupOrder": 73, "order": 2}, {"category": "시그니처", "menu": "우베솔티 바닐라크림라떼", "productCode": "112322", "ingredientName": "서울우유 생크림(500ml_동물성 500g/EA)", "qty": 33.7, "unit": "g", "note": "솔티바닐라크림 40g 비율환산(10배합 중 생크림)", "groupOrder": 73, "order": 3}, {"category": "시그니처", "menu": "우베솔티 바닐라크림라떼", "productCode": "122598", "ingredientName": "1883 바닐라시럽(1L 1Kg/EA)", "qty": 5.9, "unit": "g", "note": "솔티바닐라크림 비율환산(바닐라시럽)", "groupOrder": 73, "order": 4}, {"category": "시그니처", "menu": "우베솔티 바닐라크림라떼", "productCode": "330264", "ingredientName": "말돈 꽃소금(250g/EA)", "qty": 0.4, "unit": "g", "note": "솔티바닐라크림 비율환산(꽃소금)", "groupOrder": 73, "order": 5}, {"category": "시그니처", "menu": "우베버블티", "productCode": "489319", "ingredientName": "네이쳐티 우베파우더(800g/EA)", "qty": 40, "unit": "g", "note": "우베베이스 200g 비율환산(우베파우더)", "groupOrder": 74, "order": 0}, {"category": "시그니처", "menu": "우베버블티", "productCode": "339403", "ingredientName": "서울우유 흰우유(900ml_속편한_저지방 900g/EA)", "qty": 160, "unit": "g", "note": "우베베이스 비율환산(속편한우유)", "groupOrder": 74, "order": 1}, {"category": "시그니처", "menu": "우베버블티", "productCode": "359281", "ingredientName": "솜인터내셔널 타피오카펄(100g/EA)", "qty": 40, "unit": "g", "note": "", "groupOrder": 74, "order": 2}];
@@ -251,6 +318,9 @@ const BASE_CATS = ["커피", "보난자", "콜드브루", "에스프레소바", 
 
 let allRows = [];   // Firestore에서 실시간으로 채워짐
 let editingId = null;
+let masterRows = [];      // 식재 마스터 데이터 (Firestore 실시간)
+let editingMasterId = null;
+let currentPage = 'nutrition'; // 'nutrition' | 'master'
 
 let quickAddGroup = null;    // 현재 "이 메뉴에 재료 추가" 인라인 폼이 열려있는 groupOrder
 let editingMenuGroup = null; // 현재 메뉴명/카테고리를 수정 중인 groupOrder
@@ -287,17 +357,26 @@ function setCatTab(c){
   render();
 }
 
-// 품목마스터 datalist 채우기
-(function initDatalist(){
+// 품목마스터 datalist 채우기 (임베드된 MASTER_ITEMS + 마스터 관리 탭에서 실시간으로 추가한 품목을 합쳐서 사용)
+function getCodeNameMap(){
+  const map = { ...MASTER_ITEMS };
+  masterRows.forEach(r => { if (r.productCode) map[r.productCode] = r.itemName || map[r.productCode] || ''; });
+  return map;
+}
+
+function refreshItemMasterDatalist(){
   const dl = document.getElementById('itemMasterList');
-  const codes = Object.keys(MASTER_ITEMS);
-  dl.innerHTML = codes.map(c => `<option value="${c}">${MASTER_ITEMS[c]}</option>`).join('');
-})();
+  if (!dl) return;
+  const map = getCodeNameMap();
+  dl.innerHTML = Object.keys(map).map(c => `<option value="${esc(c)}">${esc(map[c])}</option>`).join('');
+}
+refreshItemMasterDatalist();
 
 function onCodeInput(){
   const code = document.getElementById('in_code').value.trim();
-  if (MASTER_ITEMS[code]) {
-    document.getElementById('in_name').value = MASTER_ITEMS[code];
+  const map = getCodeNameMap();
+  if (map[code]) {
+    document.getElementById('in_name').value = map[code];
   }
 }
 
@@ -477,6 +556,7 @@ function initApp(){
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   colRef = db.collection('nutritionRows');
+  masterColRef = db.collection('masterItems');
 
   firebase.auth().onAuthStateChanged(user => {
     if (user) {
@@ -487,6 +567,7 @@ function initApp(){
         listenerAttached = true;
         refreshCatOptions();
         startListening();
+        startListeningMaster();
       }
     } else {
       showLoginScreen();
@@ -494,6 +575,142 @@ function initApp(){
   });
 }
 initApp();
+
+// ── 페이지 탭 전환 (영양성분표 ↔ 마스터 관리) ──
+function setPageTab(page){
+  currentPage = page;
+  document.querySelectorAll('.page-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.page === page);
+  });
+  document.getElementById('nutritionSection').style.display = (page === 'nutrition') ? '' : 'none';
+  document.getElementById('masterSection').style.display = (page === 'master') ? '' : 'none';
+}
+
+// ── 식재 마스터 데이터 (상품코드/품목명/저장조건/포장단위/주문단위) ──
+let hasMasterAutoSeeded = false;
+function startListeningMaster(){
+  masterColRef.onSnapshot(snap => {
+    masterRows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    masterRows.sort((a, b) => (a.productCode || '').localeCompare(b.productCode || ''));
+    refreshItemMasterDatalist();
+    renderMaster();
+    if (!hasMasterAutoSeeded && masterRows.length === 0) {
+      hasMasterAutoSeeded = true;
+      const codes = Object.keys(MASTER_ITEMS);
+      if (codes.length > 0) {
+        let batch = db.batch();
+        let count = 0;
+        codes.forEach(code => {
+          const ref = masterColRef.doc();
+          batch.set(ref, { productCode: code, itemName: MASTER_ITEMS[code], storageCondition: '', packUnit: '', orderUnit: '' });
+          count++;
+          if (count % 400 === 0) { batch.commit(); batch = db.batch(); }
+        });
+        batch.commit();
+      }
+    }
+  }, err => {
+    console.error(err);
+    document.getElementById('masterTbody').innerHTML =
+      '<tr><td colspan="6" class="empty">⚠ 마스터 데이터를 불러오지 못했습니다. Firestore 규칙을 확인해주세요.</td></tr>';
+  });
+}
+
+function clearMasterForm(){
+  ['m_code','m_name','m_storage','m_packUnit','m_orderUnit'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function addMasterItem(){
+  const code = document.getElementById('m_code').value.trim();
+  const name = document.getElementById('m_name').value.trim();
+  if (!code || !name) { alert('상품코드와 품목명은 필수입니다.'); return; }
+  await masterColRef.add({
+    productCode: code,
+    itemName: name,
+    storageCondition: document.getElementById('m_storage').value.trim(),
+    packUnit: document.getElementById('m_packUnit').value.trim(),
+    orderUnit: document.getElementById('m_orderUnit').value.trim(),
+  });
+  clearMasterForm();
+}
+
+function startEditMaster(id){
+  editingMasterId = id;
+  renderMaster();
+}
+function cancelEditMaster(){
+  editingMasterId = null;
+  renderMaster();
+}
+async function saveEditMaster(id){
+  const get = (f) => document.getElementById(`medit_${f}_${id}`).value.trim();
+  await masterColRef.doc(id).update({
+    productCode: get('productCode'),
+    itemName: get('itemName'),
+    storageCondition: get('storageCondition'),
+    packUnit: get('packUnit'),
+    orderUnit: get('orderUnit'),
+  });
+  editingMasterId = null;
+  renderMaster();
+}
+async function deleteMasterItem(id){
+  if (!confirm('이 품목을 삭제할까요?')) return;
+  await masterColRef.doc(id).delete();
+}
+
+function resetMasterFilter(){
+  document.getElementById('m_search').value = '';
+  renderMaster();
+}
+
+function renderMaster(){
+  const search = (document.getElementById('m_search') || {}).value?.trim().toLowerCase() || '';
+  let rows = masterRows.filter(r => {
+    if (!search) return true;
+    const hay = [r.productCode, r.itemName].join(' ').toLowerCase();
+    return hay.includes(search);
+  });
+
+  document.getElementById('statMasterTotal').textContent = masterRows.length;
+  const cntEl = document.getElementById('masterTblCnt');
+  if (cntEl) cntEl.textContent = rows.length + '건';
+
+  const tbody = document.getElementById('masterTbody');
+  if (!tbody) return;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">표시할 데이터가 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    if (editingMasterId === r.id) {
+      return `<tr>
+        <td><input class="edit-input" id="medit_productCode_${r.id}" value="${esc(r.productCode)}"></td>
+        <td><input class="edit-input" id="medit_itemName_${r.id}" value="${esc(r.itemName)}"></td>
+        <td><input class="edit-input" id="medit_storageCondition_${r.id}" value="${esc(r.storageCondition)}"></td>
+        <td><input class="edit-input" id="medit_packUnit_${r.id}" value="${esc(r.packUnit)}"></td>
+        <td><input class="edit-input" id="medit_orderUnit_${r.id}" value="${esc(r.orderUnit)}"></td>
+        <td class="actions">
+          <button class="btn btn-primary btn-sm" onclick="saveEditMaster('${r.id}')">저장</button>
+          <button class="btn btn-secondary btn-sm" onclick="cancelEditMaster()">취소</button>
+        </td>
+      </tr>`;
+    }
+    return `<tr>
+      <td class="code">${esc(r.productCode)}</td>
+      <td>${esc(r.itemName)}</td>
+      <td class="center">${esc(r.storageCondition)}</td>
+      <td class="center">${esc(r.packUnit)}</td>
+      <td class="center">${esc(r.orderUnit)}</td>
+      <td class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="startEditMaster('${r.id}')">수정</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMasterItem('${r.id}')">삭제</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
 
 // ── Excel 가져오기 (시트 → 웹) ──
 function triggerImport(){
@@ -729,8 +946,9 @@ async function saveQuickAdd(groupOrder){
 function onQaCodeInput(){
   const el = document.getElementById('qa_code');
   const code = el ? el.value.trim() : '';
-  if (code && MASTER_ITEMS[code]) {
-    document.getElementById('qa_name').value = MASTER_ITEMS[code];
+  const map = getCodeNameMap();
+  if (code && map[code]) {
+    document.getElementById('qa_name').value = map[code];
   }
 }
 
