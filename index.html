@@ -721,7 +721,7 @@ function renderMaster(){
       <td class="center">${esc(r.packUnit)}</td>
       <td class="center">${esc(r.orderUnit)}</td>
       <td class="actions">
-        <button class="btn btn-secondary btn-sm" data-id="${r.id}" data-name="${esc(r.itemName)}" onclick="showItemPhoto('master', this.dataset.id, this.dataset.name)">📷 사진</button>
+        <button class="btn btn-secondary btn-sm" data-code="${esc(r.productCode)}" data-name="${esc(r.itemName)}" onclick="showItemPhoto(this.dataset.code, this.dataset.name)">📷 사진</button>
         <button class="btn btn-secondary btn-sm" onclick="startEditMaster('${r.id}')">수정</button>
         <button class="btn btn-danger btn-sm" onclick="deleteMasterItem('${r.id}')">삭제</button>
       </td>
@@ -729,15 +729,19 @@ function renderMaster(){
   }).join('');
 }
 
-// ── 품목 사진 (외부/비물류 품목의 영양정보 사진 등록용, Firestore 서브컬렉션에 압축 저장) ──
-// 마스터 관리 탭(masterColRef)과 영양성분표 탭(colRef) 양쪽에서 공용으로 사용
-let currentPhotoItemId = null;
-let currentPhotoScope = null;   // 'master' | 'nutrition'
+// ── 품목 사진 (외부/비물류 품목의 영양정보 사진 등록용, Firestore에 압축 저장) ──
+// 제품코드를 문서ID로 사용하는 공용 컬렉션(itemPhotos)에 저장하므로,
+// 마스터 관리 탭과 영양성분표 탭에서 같은 제품코드를 가진 품목이면 사진이 자동으로 동기화된다.
+let currentPhotoCode = null;
 let currentPhotoName = '';
 
-function getPhotoDocRef(scope, id){
-  const base = (scope === 'master') ? masterColRef : colRef;
-  return base.doc(id).collection('photo').doc('main');
+function sanitizePhotoCode(code){
+  // Firestore 문서 ID에 쓸 수 없는 문자(/)만 안전하게 치환
+  return String(code).trim().replace(/\//g, '_');
+}
+
+function getPhotoDocRef(code){
+  return db.collection('itemPhotos').doc(sanitizePhotoCode(code));
 }
 
 function compressImageFile(file, maxDim, quality){
@@ -773,17 +777,20 @@ function setPhotoDownloadEnabled(enabled, dataUrl){
   btn.dataset.dataurl = enabled ? dataUrl : '';
 }
 
-async function showItemPhoto(scope, id, name){
-  currentPhotoScope = scope;
-  currentPhotoItemId = id;
+async function showItemPhoto(code, name){
+  if (!code || !String(code).trim()) {
+    alert('제품코드가 없는 항목은 사진을 다른 화면과 동기화할 수 없습니다.\n먼저 제품코드를 입력해주세요.');
+    return;
+  }
+  currentPhotoCode = code;
   currentPhotoName = name;
-  document.getElementById('photoModalTitle').textContent = '📷 ' + name;
+  document.getElementById('photoModalTitle').textContent = '📷 ' + name + ' (' + code + ')';
   document.getElementById('photoModal').style.display = 'flex';
   const body = document.getElementById('photoModalBody');
   body.innerHTML = '불러오는 중...';
   setPhotoDownloadEnabled(false);
   try {
-    const doc = await getPhotoDocRef(scope, id).get();
+    const doc = await getPhotoDocRef(code).get();
     if (doc.exists && doc.data().dataUrl) {
       const dataUrl = doc.data().dataUrl;
       body.innerHTML = `<img src="${dataUrl}" style="max-width:100%;border-radius:6px;display:block;margin:0 auto">`;
@@ -800,8 +807,7 @@ async function showItemPhoto(scope, id, name){
 function closePhotoModal(){
   document.getElementById('photoModal').style.display = 'none';
   document.getElementById('photoFileInput').value = '';
-  currentPhotoScope = null;
-  currentPhotoItemId = null;
+  currentPhotoCode = null;
   currentPhotoName = '';
   setPhotoDownloadEnabled(false);
 }
@@ -812,7 +818,7 @@ function triggerPhotoUpload(){
 
 async function handlePhotoUpload(event){
   const file = event.target.files[0];
-  if (!file || !currentPhotoItemId || !currentPhotoScope) return;
+  if (!file || !currentPhotoCode) return;
   const body = document.getElementById('photoModalBody');
   body.innerHTML = '이미지 압축 중...';
   try {
@@ -824,7 +830,8 @@ async function handlePhotoUpload(event){
       event.target.value = '';
       return;
     }
-    await getPhotoDocRef(currentPhotoScope, currentPhotoItemId).set({
+    await getPhotoDocRef(currentPhotoCode).set({
+      productCode: currentPhotoCode,
       dataUrl,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -839,9 +846,9 @@ async function handlePhotoUpload(event){
 }
 
 async function deleteItemPhoto(){
-  if (!currentPhotoItemId || !currentPhotoScope) return;
-  if (!confirm('이 사진을 삭제할까요?')) return;
-  await getPhotoDocRef(currentPhotoScope, currentPhotoItemId).delete();
+  if (!currentPhotoCode) return;
+  if (!confirm('이 사진을 삭제할까요? (같은 제품코드를 쓰는 다른 화면에서도 함께 사라집니다)')) return;
+  await getPhotoDocRef(currentPhotoCode).delete();
   document.getElementById('photoModalBody').innerHTML = '<div class="empty" style="padding:20px">등록된 사진이 없습니다.</div>';
   setPhotoDownloadEnabled(false);
 }
@@ -1253,7 +1260,7 @@ function render(){
           <td class="center">${esc(r.unit)}</td>
           <td class="note">${esc(r.note)}</td>
           <td class="actions">
-            <button class="btn btn-secondary btn-sm" data-id="${r.id}" data-name="${esc(r.ingredientName || r.productCode || '재료')}" onclick="showItemPhoto('nutrition', this.dataset.id, this.dataset.name)">📷 사진</button>
+            <button class="btn btn-secondary btn-sm" data-code="${esc(r.productCode)}" data-name="${esc(r.ingredientName || r.productCode || '재료')}" onclick="showItemPhoto(this.dataset.code, this.dataset.name)">📷 사진</button>
             <button class="btn btn-secondary btn-sm" onclick="startEdit('${r.id}')">수정</button>
             <button class="btn btn-danger btn-sm" onclick="deleteRow('${r.id}')">삭제</button>
           </td>
@@ -1297,14 +1304,46 @@ function exportExcel(){
     }
     return true;
   });
-  const data = rows.map(r => ({
-    '카테고리': r.category, '메뉴명': r.menu,
-    '제품코드': r.productCode, '재료명': r.ingredientName, '사용량': r.qty,
-    '사용단위': r.unit, '비고': r.note,
-  }));
-  const ws = XLSX.utils.json_to_sheet(data);
+
+  if (rows.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
+
+  // 카테고리별로 시트를 나누고, 시트 안에서는 메뉴 단위로 빈 줄을 넣어 구분한다.
+  const catsInData = Array.from(new Set(rows.map(r => r.category)));
+  const catOrder = [...BASE_CATS.filter(c => catsInData.includes(c)), ...catsInData.filter(c => !BASE_CATS.includes(c))];
+
+  const headerRow = ['메뉴명', '제품코드', '재료명', '사용량', '사용단위', '비고'];
+  const colWidths = [{ wch: 24 }, { wch: 12 }, { wch: 30 }, { wch: 9 }, { wch: 9 }, { wch: 28 }];
+  const usedSheetNames = new Set();
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '영양성분표');
+  catOrder.forEach(cat => {
+    const catRows = rows
+      .filter(r => r.category === cat)
+      .slice()
+      .sort((a, b) => (a.groupOrder ?? 0) - (b.groupOrder ?? 0) || (a.order ?? 0) - (b.order ?? 0));
+
+    const aoa = [headerRow];
+    let lastGroup = null;
+    catRows.forEach(r => {
+      if (lastGroup !== null && r.groupOrder !== lastGroup) aoa.push([]); // 메뉴 구분용 빈 줄
+      aoa.push([r.menu, r.productCode, r.ingredientName, r.qty, r.unit, r.note]);
+      lastGroup = r.groupOrder;
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = colWidths;
+    ws['!views'] = [{ state: 'frozen', ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' }];
+
+    // 시트명은 31자 제한 + : \ / ? * [ ] 사용 불가 + 중복 불가
+    let sheetName = String(cat).replace(/[:\/?*\[\]]/g, ' ').trim().slice(0, 31) || 'Sheet';
+    let finalName = sheetName;
+    let n = 2;
+    while (usedSheetNames.has(finalName)) { finalName = (sheetName.slice(0, 28) + '_' + n); n++; }
+    usedSheetNames.add(finalName);
+
+    XLSX.utils.book_append_sheet(wb, ws, finalName);
+  });
+
   XLSX.writeFile(wb, 'recipe_nutrition_item_mapping.xlsx');
 }
 </script>
