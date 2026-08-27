@@ -320,10 +320,15 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
         <div class="fg"><label>제품코드 *</label><input type="text" id="nf_code" list="itemMasterList" placeholder="예: 340250" oninput="onNfCodeInput()"></div>
         <div class="fg"><label>재료명</label><input type="text" id="nf_name" placeholder="입력 시 자동완성"></div>
         <div class="fg"><label>열량(kcal)</label><input type="number" step="0.1" id="nf_calories" placeholder="예: 350"></div>
+        <div class="fg"><label>탄수화물(g)</label><input type="number" step="0.1" id="nf_carbs" placeholder="예: 26"></div>
         <div class="fg"><label>당류(g)</label><input type="number" step="0.1" id="nf_sugar" placeholder="예: 5"></div>
         <div class="fg"><label>단백질(g)</label><input type="number" step="0.1" id="nf_protein" placeholder="예: 12"></div>
         <div class="fg"><label>지방(g)</label><input type="number" step="0.1" id="nf_fat" placeholder="예: 20"></div>
+        <div class="fg"><label>포화지방(g)</label><input type="number" step="0.1" id="nf_saturatedFat" placeholder="예: 8"></div>
+        <div class="fg"><label>트랜스지방(g)</label><input type="number" step="0.1" id="nf_transFat" placeholder="예: 0"></div>
+        <div class="fg"><label>콜레스테롤(mg)</label><input type="number" step="0.1" id="nf_cholesterol" placeholder="예: 0"></div>
         <div class="fg"><label>나트륨(mg)</label><input type="number" step="0.1" id="nf_sodium" placeholder="예: 5"></div>
+        <div class="fg"><label>칼슘(mg)</label><input type="number" step="0.1" id="nf_calcium" placeholder="예: 60"></div>
       </div>
       <div class="form-row">
         <button class="btn btn-primary" onclick="addNutritionFact()">✚ 추가/수정</button>
@@ -355,15 +360,20 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
               <th style="width:100px">제품코드</th>
               <th style="min-width:200px">재료명</th>
               <th style="width:80px">열량<br>(kcal)</th>
+              <th style="width:70px">탄수화물<br>(g)</th>
               <th style="width:70px">당류<br>(g)</th>
               <th style="width:70px">단백질<br>(g)</th>
               <th style="width:70px">지방<br>(g)</th>
+              <th style="width:70px">포화지방<br>(g)</th>
+              <th style="width:70px">트랜스지방<br>(g)</th>
+              <th style="width:80px">콜레스테롤<br>(mg)</th>
               <th style="width:80px">나트륨<br>(mg)</th>
+              <th style="width:70px">칼슘<br>(mg)</th>
               <th style="width:140px">작업</th>
             </tr>
           </thead>
           <tbody id="nfTbody">
-            <tr><td colspan="8" class="empty">불러오는 중...</td></tr>
+            <tr><td colspan="13" class="empty">불러오는 중...</td></tr>
           </tbody>
         </table>
       </div>
@@ -391,15 +401,20 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
               <th style="width:80px">카테고리</th>
               <th style="min-width:180px">메뉴명</th>
               <th style="width:80px">열량<br>(kcal)</th>
+              <th style="width:70px">탄수화물<br>(g)</th>
               <th style="width:70px">당류<br>(g)</th>
               <th style="width:70px">단백질<br>(g)</th>
               <th style="width:70px">지방<br>(g)</th>
+              <th style="width:70px">포화지방<br>(g)</th>
+              <th style="width:70px">트랜스지방<br>(g)</th>
+              <th style="width:80px">콜레스테롤<br>(mg)</th>
               <th style="width:80px">나트륨<br>(mg)</th>
+              <th style="width:70px">칼슘<br>(mg)</th>
               <th style="width:150px">비고</th>
             </tr>
           </thead>
           <tbody id="calcTbody">
-            <tr><td colspan="8" class="empty">불러오는 중...</td></tr>
+            <tr><td colspan="13" class="empty">불러오는 중...</td></tr>
           </tbody>
         </table>
       </div>
@@ -900,7 +915,7 @@ function startListeningNutritionFacts(){
   }, err => {
     console.error(err);
     const tb = document.getElementById('nfTbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="8" class="empty">⚠ 영양정보를 불러오지 못했습니다. Firestore 규칙을 확인해주세요.</td></tr>';
+    if (tb) tb.innerHTML = '<tr><td colspan="13" class="empty">⚠ 영양정보를 불러오지 못했습니다. Firestore 규칙을 확인해주세요.</td></tr>';
   });
 }
 
@@ -929,7 +944,7 @@ function onNfCodeInput(){
 }
 
 function clearNfForm(){
-  ['nf_code','nf_name','nf_calories','nf_sugar','nf_protein','nf_fat','nf_sodium'].forEach(id => document.getElementById(id).value = '');
+  ['nf_code','nf_name','nf_calories','nf_carbs','nf_sugar','nf_protein','nf_fat','nf_saturatedFat','nf_transFat','nf_cholesterol','nf_sodium','nf_calcium'].forEach(id => document.getElementById(id).value = '');
 }
 
 async function addNutritionFact(){
@@ -940,10 +955,15 @@ async function addNutritionFact(){
     productCode: code,
     ingredientName: document.getElementById('nf_name').value.trim(),
     calories: num('nf_calories'),
+    carbs: num('nf_carbs'),
     sugar: num('nf_sugar'),
     protein: num('nf_protein'),
     fat: num('nf_fat'),
+    saturatedFat: num('nf_saturatedFat'),
+    transFat: num('nf_transFat'),
+    cholesterol: num('nf_cholesterol'),
     sodium: num('nf_sodium'),
+    calcium: num('nf_calcium'),
   }, { merge: true });
   clearNfForm();
 }
@@ -962,10 +982,15 @@ async function saveEditNf(id){
   await nutritionFactsColRef.doc(id).update({
     ingredientName: get('ingredientName').trim(),
     calories: num(get('calories')),
+    carbs: num(get('carbs')),
     sugar: num(get('sugar')),
     protein: num(get('protein')),
     fat: num(get('fat')),
+    saturatedFat: num(get('saturatedFat')),
+    transFat: num(get('transFat')),
+    cholesterol: num(get('cholesterol')),
     sodium: num(get('sodium')),
+    calcium: num(get('calcium')),
   });
   editingNfId = null;
   renderNutritionFacts();
@@ -1011,7 +1036,7 @@ function renderNutritionFacts(){
   const tbody = document.getElementById('nfTbody');
   if (!tbody) return;
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">표시할 데이터가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty">표시할 데이터가 없습니다.</td></tr>';
     return;
   }
 
@@ -1022,10 +1047,15 @@ function renderNutritionFacts(){
         <td class="code">${esc(x.code)}</td>
         <td><input class="edit-input" id="nfedit_ingredientName_${f.id}" value="${esc(f.ingredientName)}"></td>
         <td><input class="edit-input" type="number" id="nfedit_calories_${f.id}" value="${esc(f.calories)}"></td>
+        <td><input class="edit-input" type="number" id="nfedit_carbs_${f.id}" value="${esc(f.carbs)}"></td>
         <td><input class="edit-input" type="number" id="nfedit_sugar_${f.id}" value="${esc(f.sugar)}"></td>
         <td><input class="edit-input" type="number" id="nfedit_protein_${f.id}" value="${esc(f.protein)}"></td>
         <td><input class="edit-input" type="number" id="nfedit_fat_${f.id}" value="${esc(f.fat)}"></td>
+        <td><input class="edit-input" type="number" id="nfedit_saturatedFat_${f.id}" value="${esc(f.saturatedFat)}"></td>
+        <td><input class="edit-input" type="number" id="nfedit_transFat_${f.id}" value="${esc(f.transFat)}"></td>
+        <td><input class="edit-input" type="number" id="nfedit_cholesterol_${f.id}" value="${esc(f.cholesterol)}"></td>
         <td><input class="edit-input" type="number" id="nfedit_sodium_${f.id}" value="${esc(f.sodium)}"></td>
+        <td><input class="edit-input" type="number" id="nfedit_calcium_${f.id}" value="${esc(f.calcium)}"></td>
         <td class="actions">
           <button class="btn btn-primary btn-sm" onclick="saveEditNf('${f.id}')">저장</button>
           <button class="btn btn-secondary btn-sm" onclick="cancelEditNf()">취소</button>
@@ -1036,17 +1066,22 @@ function renderNutritionFacts(){
       return `<tr class="flag-row">
         <td class="code">${esc(x.code)}</td>
         <td>${esc(x.name)}</td>
-        <td class="center" colspan="6" style="color:#dc2626">미등록 - 위 입력폼에서 추가해주세요</td>
+        <td class="center" colspan="11" style="color:#dc2626">미등록 - 위 입력폼에서 추가해주세요</td>
       </tr>`;
     }
     return `<tr>
       <td class="code">${esc(x.code)}</td>
       <td>${esc(f.ingredientName)}</td>
       <td class="right">${esc(f.calories)}</td>
+      <td class="right">${esc(f.carbs)}</td>
       <td class="right">${esc(f.sugar)}</td>
       <td class="right">${esc(f.protein)}</td>
       <td class="right">${esc(f.fat)}</td>
+      <td class="right">${esc(f.saturatedFat)}</td>
+      <td class="right">${esc(f.transFat)}</td>
+      <td class="right">${esc(f.cholesterol)}</td>
       <td class="right">${esc(f.sodium)}</td>
+      <td class="right">${esc(f.calcium)}</td>
       <td class="actions">
         <button class="btn btn-secondary btn-sm" onclick="startEditNf('${f.id}')">수정</button>
         <button class="btn btn-danger btn-sm" onclick="deleteNutritionFact('${f.id}')">삭제</button>
@@ -1068,10 +1103,15 @@ function normalizeNfRow(obj){
     productCode: String(pick('제품코드','productCode')).trim(),
     ingredientName: String(pick('재료명','ingredientName')).trim(),
     calories: parseFloat(pick('열량','열량(kcal)','calories')) || 0,
+    carbs: parseFloat(pick('탄수화물','탄수화물(g)','carbs')) || 0,
     sugar: parseFloat(pick('당류','당류(g)','sugar')) || 0,
     protein: parseFloat(pick('단백질','단백질(g)','protein')) || 0,
     fat: parseFloat(pick('지방','지방(g)','fat')) || 0,
+    saturatedFat: parseFloat(pick('포화지방','포화지방(g)','saturatedFat')) || 0,
+    transFat: parseFloat(pick('트랜스지방','트랜스지방(g)','transFat')) || 0,
+    cholesterol: parseFloat(pick('콜레스테롤','콜레스테롤(mg)','cholesterol')) || 0,
     sodium: parseFloat(pick('나트륨','나트륨(mg)','sodium')) || 0,
+    calcium: parseFloat(pick('칼슘','칼슘(mg)','calcium')) || 0,
   };
 }
 async function handleNfImport(event){
@@ -1082,7 +1122,7 @@ async function handleNfImport(event){
   const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
   const parsed = json.map(normalizeNfRow).filter(r => r.productCode);
   if (parsed.length === 0) {
-    alert('가져올 수 있는 데이터가 없습니다. 헤더가 제품코드/재료명/열량/당류/단백질/지방/나트륨 형식인지 확인해주세요.');
+    alert('가져올 수 있는 데이터가 없습니다. 헤더가 제품코드/재료명/열량/탄수화물/당류/단백질/지방/포화지방/트랜스지방/콜레스테롤/나트륨/칼슘 형식인지 확인해주세요.');
     event.target.value = '';
     return;
   }
@@ -1100,10 +1140,12 @@ async function handleNfImport(event){
 function exportNfExcel(){
   const data = nutritionFactsRows.map(r => ({
     '제품코드': r.productCode, '재료명': r.ingredientName,
-    '열량(kcal)': r.calories, '당류(g)': r.sugar, '단백질(g)': r.protein, '지방(g)': r.fat, '나트륨(mg)': r.sodium,
+    '열량(kcal)': r.calories, '탄수화물(g)': r.carbs, '당류(g)': r.sugar, '단백질(g)': r.protein,
+    '지방(g)': r.fat, '포화지방(g)': r.saturatedFat, '트랜스지방(g)': r.transFat,
+    '콜레스테롤(mg)': r.cholesterol, '나트륨(mg)': r.sodium, '칼슘(mg)': r.calcium,
   }));
   const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = [{wch:12},{wch:28},{wch:10},{wch:9},{wch:10},{wch:9},{wch:10}];
+  ws['!cols'] = [{wch:12},{wch:28},{wch:10},{wch:11},{wch:9},{wch:10},{wch:9},{wch:11},{wch:11},{wch:12},{wch:10},{wch:9}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '재료영양정보');
   XLSX.writeFile(wb, 'ingredient_nutrition_facts.xlsx');
@@ -1119,23 +1161,31 @@ function computeMenuNutrition(){
   });
   const results = [];
   groups.forEach((g, groupOrder) => {
-    let calories = 0, sugar = 0, protein = 0, fat = 0, sodium = 0;
+    let calories = 0, carbs = 0, sugar = 0, protein = 0, fat = 0, saturatedFat = 0, transFat = 0, cholesterol = 0, sodium = 0, calcium = 0;
     let missingCount = 0;
     g.rows.forEach(r => {
       const fact = r.productCode ? factsMap[r.productCode] : null;
       if (!fact) { missingCount++; return; }
       const ratio = (r.qty || 0) / 100;
       calories += ratio * (fact.calories || 0);
+      carbs += ratio * (fact.carbs || 0);
       sugar += ratio * (fact.sugar || 0);
       protein += ratio * (fact.protein || 0);
       fat += ratio * (fact.fat || 0);
+      saturatedFat += ratio * (fact.saturatedFat || 0);
+      transFat += ratio * (fact.transFat || 0);
+      cholesterol += ratio * (fact.cholesterol || 0);
       sodium += ratio * (fact.sodium || 0);
+      calcium += ratio * (fact.calcium || 0);
     });
     results.push({
       groupOrder, category: g.category, menu: g.menu,
-      calories: Math.round(calories * 10) / 10, sugar: Math.round(sugar * 10) / 10,
+      calories: Math.round(calories * 10) / 10, carbs: Math.round(carbs * 10) / 10,
+      sugar: Math.round(sugar * 10) / 10,
       protein: Math.round(protein * 10) / 10, fat: Math.round(fat * 10) / 10,
-      sodium: Math.round(sodium * 10) / 10,
+      saturatedFat: Math.round(saturatedFat * 10) / 10, transFat: Math.round(transFat * 10) / 10,
+      cholesterol: Math.round(cholesterol * 10) / 10,
+      sodium: Math.round(sodium * 10) / 10, calcium: Math.round(calcium * 10) / 10,
       missingCount, totalIngredients: g.rows.length,
     });
   });
@@ -1181,7 +1231,7 @@ function renderMenuNutrition(){
   const tbody = document.getElementById('calcTbody');
   if (!tbody) return;
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">표시할 데이터가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty">표시할 데이터가 없습니다.</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(r => {
@@ -1192,10 +1242,15 @@ function renderMenuNutrition(){
       <td class="center"><span class="cat cat-cell-${esc(r.category)}">${esc(r.category)}</span></td>
       <td>${esc(r.menu)}</td>
       <td class="right">${r.calories}</td>
+      <td class="right">${r.carbs}</td>
       <td class="right">${r.sugar}</td>
       <td class="right">${r.protein}</td>
       <td class="right">${r.fat}</td>
+      <td class="right">${r.saturatedFat}</td>
+      <td class="right">${r.transFat}</td>
+      <td class="right">${r.cholesterol}</td>
       <td class="right">${r.sodium}</td>
+      <td class="right">${r.calcium}</td>
       <td class="note">${note}</td>
     </tr>`;
   }).join('');
@@ -1205,11 +1260,13 @@ function exportCalcExcel(){
   const rows = computeMenuNutrition();
   const data = rows.map(r => ({
     '카테고리': r.category, '메뉴명': r.menu,
-    '열량(kcal)': r.calories, '당류(g)': r.sugar, '단백질(g)': r.protein, '지방(g)': r.fat, '나트륨(mg)': r.sodium,
+    '열량(kcal)': r.calories, '탄수화물(g)': r.carbs, '당류(g)': r.sugar, '단백질(g)': r.protein,
+    '지방(g)': r.fat, '포화지방(g)': r.saturatedFat, '트랜스지방(g)': r.transFat,
+    '콜레스테롤(mg)': r.cholesterol, '나트륨(mg)': r.sodium, '칼슘(mg)': r.calcium,
     '비고': r.missingCount > 0 ? `재료 ${r.missingCount}/${r.totalIngredients}개 영양정보 없음` : '전체 반영',
   }));
   const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = [{wch:10},{wch:24},{wch:10},{wch:9},{wch:10},{wch:9},{wch:10},{wch:26}];
+  ws['!cols'] = [{wch:10},{wch:24},{wch:10},{wch:11},{wch:9},{wch:10},{wch:9},{wch:11},{wch:11},{wch:12},{wch:10},{wch:9},{wch:26}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '메뉴별영양성분');
   XLSX.writeFile(wb, 'menu_nutrition_facts.xlsx');
