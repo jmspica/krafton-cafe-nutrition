@@ -976,10 +976,21 @@ function getNutritionFactsMap(){
 }
 
 // 레시피(nutritionRows)에 실제로 쓰인 모든 제품코드 + 재료명 (영양정보 입력 대상 후보)
+// 물/얼음처럼 그 자체로 실질적인 영양성분이 없는 재료명. 이런 재료는 영양정보 등록이 필요 없고,
+// 메뉴별 계산에서도 "미등록"으로 잡히지 않고 0으로 처리한다.
+const ZERO_NUTRITION_NAME_PATTERNS = ['온수', '정수', '냉수', '탄산수', '스파클링워터', '얼음', '각얼음'];
+function isZeroNutritionIngredient(name){
+  const n = (name || '').trim();
+  if (!n) return false;
+  return ZERO_NUTRITION_NAME_PATTERNS.some(p => n === p || n.startsWith(p));
+}
+
 function getIngredientUniverse(){
   const map = new Map();
   allRows.forEach(r => {
-    if (r.productCode && !map.has(r.productCode)) map.set(r.productCode, r.ingredientName || '');
+    if (r.productCode && !map.has(r.productCode) && !isZeroNutritionIngredient(r.ingredientName)) {
+      map.set(r.productCode, r.ingredientName || '');
+    }
   });
   return map;
 }
@@ -1214,6 +1225,7 @@ function computeMenuNutrition(){
     let calories = 0, carbs = 0, sugar = 0, protein = 0, fat = 0, saturatedFat = 0, transFat = 0, cholesterol = 0, sodium = 0, calcium = 0;
     let missingCount = 0;
     g.rows.forEach(r => {
+      if (isZeroNutritionIngredient(r.ingredientName)) return; // 물/얼음 등: 0으로 처리, 미등록 집계에서 제외
       const fact = r.productCode ? factsMap[r.productCode] : null;
       if (!fact) { missingCount++; return; }
       const ratio = (r.qty || 0) / 100;
@@ -1236,7 +1248,8 @@ function computeMenuNutrition(){
       saturatedFat: Math.round(saturatedFat * 10) / 10, transFat: Math.round(transFat * 10) / 10,
       cholesterol: Math.round(cholesterol * 10) / 10,
       sodium: Math.round(sodium * 10) / 10, calcium: Math.round(calcium * 10) / 10,
-      missingCount, totalIngredients: g.rows.length,
+      missingCount,
+      totalIngredients: g.rows.filter(r => !isZeroNutritionIngredient(r.ingredientName)).length,
     });
   });
   results.sort((a, b) => a.groupOrder - b.groupOrder);
