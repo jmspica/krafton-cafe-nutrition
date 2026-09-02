@@ -283,7 +283,10 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
     <div class="tbl-card">
       <div class="tbl-header">
         <h3>식재 마스터 데이터</h3>
-        <span class="tbl-cnt" id="masterTblCnt">0건</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="tbl-cnt" id="masterTblCnt">0건</span>
+          <button class="btn btn-excel btn-sm" onclick="exportMasterExcel()">📊 내보내기</button>
+        </div>
       </div>
       <div class="tbl-wrap">
         <table>
@@ -397,7 +400,7 @@ tbody td.note{font-size:11px;color:#666;max-width:260px}
           <button class="btn btn-excel btn-sm" onclick="exportCalcExcel()">📊 내보내기</button>
         </div>
       </div>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" id="calcTblWrap">
         <table>
           <thead>
             <tr>
@@ -894,6 +897,20 @@ async function saveEditMaster(id){
 async function deleteMasterItem(id){
   if (!confirm('이 품목을 삭제할까요?')) return;
   await masterColRef.doc(id).delete();
+}
+
+function exportMasterExcel(){
+  const rows = [...masterRows].sort((a, b) => (a.productCode || '').localeCompare(b.productCode || ''));
+  const data = rows.map(r => ({
+    '상품코드': r.productCode, '품목명': r.itemName, '저장조건': r.storageCondition,
+    '포장단위': r.packUnit, '주문단위': r.orderUnit,
+    '리드타임(일)': r.leadTimeDays ?? '', '발주주기(일)': r.orderCycleDays ?? '', '안전재고(일치)': r.safetyStockDays ?? '',
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:32},{wch:10},{wch:14},{wch:10},{wch:10},{wch:10},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '식재마스터');
+  XLSX.writeFile(wb, 'master_items.xlsx');
 }
 
 function resetMasterFilter(){
@@ -1411,6 +1428,9 @@ function setCalcSort(key){
     calcSortDir = 'asc';
   }
   renderMenuNutrition();
+  // 정렬 기준이 바뀌면 스크롤이 이전 위치에 그대로 남아 정렬이 안 된 것처럼 보이므로 맨 위로 되돌린다.
+  const wrap = document.getElementById('calcTblWrap');
+  if (wrap) wrap.scrollTop = 0;
 }
 
 const CALC_SORT_KEYS = ['category','menu','calories','carbs','sugar','protein','fat','saturatedFat','transFat','cholesterol','sodium','calcium'];
